@@ -2,19 +2,23 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Users, Calendar, ArrowLeft, Trash2, Search, Pencil, Settings2 } from 'lucide-react'
 import { Button, Badge, Modal } from '@/components/ui'
 import {
-  addProjectMember,
+  addProjectMembersBatch,
   createDocumentType,
   createProject as createProjectReq,
   deleteDocumentType,
   deleteProject,
+  getProjectTree,
   listDocumentTypes,
+  listEmployees,
   listProjectMembers,
   listProjectRequirements,
   listProjects,
   removeProjectMember,
   setProjectRequirements,
   updateProject,
+  updateProjectTree,
 } from '@/api/client'
+import ProjectTree from '@/components/ProjectTree'
 
 interface Project {
   id: number
@@ -65,8 +69,6 @@ export default function ProjectsPage() {
   const [docTypeOpen, setDocTypeOpen] = useState(false)
   const [newProj, setNewProj] = useState({ project_name: '', start_date: '', end_date: '' })
   const [members, setMembers] = useState<MemberRow[]>([])
-  const [empId, setEmpId] = useState('')
-  const [role, setRole] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [docTypes, setDocTypes] = useState<DocumentTypeRow[]>([])
   const [reqIds, setReqIds] = useState<number[]>([])
@@ -79,6 +81,13 @@ export default function ProjectsPage() {
     start_date: '',
     end_date: '',
   })
+  
+  // New state
+  const [activeTab, setActiveTab] = useState<'list' | 'tree'>('list')
+  const [allEmployees, setAllEmployees] = useState<any[]>([])
+  const [searchEmp, setSearchEmp] = useState('')
+  const [selectedEmpIds, setSelectedEmpIds] = useState<number[]>([])
+  const [treeData, setTreeData] = useState<any>(null)
 
   const refreshProjects = async () => {
     try {
@@ -141,20 +150,62 @@ export default function ProjectsPage() {
     await refreshMembers(selected.id)
   }
 
-  const addMember = async () => {
-    if (!selected) return
-    if (!empId.trim()) return
-    await addProjectMember(selected.id, {
-      employee_id: Number(empId),
-      role: role || null,
-      start_date: new Date().toISOString().slice(0, 10),
-      end_date: null,
-    })
-    setEmpId('')
-    setRole('')
-    setAddOpen(false)
-    await refreshMembers(selected.id)
+  const openAddMemberModal = async () => {
+    setAddOpen(true)
+    try {
+      const res = await listEmployees()
+      setAllEmployees(res.employees)
+    } catch (e) {
+      console.error(e)
+    }
   }
+
+  const addMembersBatch = async () => {
+    if (!selected) return
+    if (selectedEmpIds.length === 0) return
+    try {
+      const todayStr = new Date().toISOString().slice(0, 10)
+      await addProjectMembersBatch(
+        selected.id,
+        selectedEmpIds.map(id => ({ employee_id: id, start_date: todayStr }))
+      )
+      setAddOpen(false)
+      setSelectedEmpIds([])
+      await refreshMembers(selected.id)
+    } catch (e) {
+      alert('Thêm thất bại: ' + (e instanceof Error ? e.message : ''))
+    }
+  }
+
+  const fetchTree = async (projectId: number) => {
+    try {
+      const res = await getProjectTree(projectId)
+      setTreeData(res.tree_data)
+      // Make sure employees are loaded for the sidebar
+      if (allEmployees.length === 0) {
+        const empRes = await listEmployees()
+        setAllEmployees(empRes.employees)
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const saveTree = async (data: any) => {
+    if (!selected) return
+    try {
+      await updateProjectTree(selected.id, data)
+      setTreeData(data)
+    } catch (e) {
+      alert('Lưu thất bại: ' + (e instanceof Error ? e.message : ''))
+    }
+  }
+
+  useEffect(() => {
+    if (selected && activeTab === 'tree') {
+      fetchTree(selected.id)
+    }
+  }, [selected?.id, activeTab])
 
   const filteredMembers = useMemo(() => members, [members])
 
@@ -220,61 +271,130 @@ export default function ProjectsPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b flex items-center justify-between">
-            <div>
-              <p className="font-semibold text-zinc-900">Thành viên dự án</p>
-              <p className="text-xs text-zinc-400 mt-0.5">{members.length} thành viên</p>
-            </div>
-            <Button onClick={() => setAddOpen(true)}><Plus className="mr-2 h-4 w-4" />Thêm thành viên</Button>
-          </div>
-
-          {filteredMembers.length === 0 ? (
-            <div className="py-14 text-center text-zinc-400">
-              <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">Chưa có thành viên nào.</p>
-            </div>
-          ) : (
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b">
-                <tr>
-                  <th className="px-6 py-3">Tên</th>
-                  <th className="px-6 py-3">Vị trí</th>
-                  <th className="px-6 py-3">Kinh nghiệm</th>
-                  <th className="px-6 py-3">Trình độ</th>
-                  <th className="px-6 py-3 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredMembers.map(e => (
-                  <tr key={e.employee_id} className="border-b last:border-0 hover:bg-zinc-50 transition-colors">
-                    <td className="px-6 py-4 font-medium text-zinc-900">{e.full_name}</td>
-                    <td className="px-6 py-4 text-zinc-500">{e.role ?? '—'}</td>
-                    <td className="px-6 py-4 text-zinc-500">{e.department ?? '—'}</td>
-                    <td className="px-6 py-4"><Badge className="bg-zinc-100 text-zinc-600 border-zinc-200">{e.position ?? '—'}</Badge></td>
-                    <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeMember(e.employee_id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="flex space-x-4 border-b">
+          <button 
+            className={`pb-2 text-sm font-medium border-b-2 ${activeTab === 'list' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+            onClick={() => setActiveTab('list')}
+          >
+            Danh sách nhân sự
+          </button>
+          <button 
+            className={`pb-2 text-sm font-medium border-b-2 ${activeTab === 'tree' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
+            onClick={() => setActiveTab('tree')}
+          >
+            Sơ đồ tổ chức
+          </button>
         </div>
 
-        {/* Add member modal */}
-        <Modal open={addOpen} onClose={() => { setAddOpen(false) }} title={`Thêm thành viên — ${liveProject.project_name}`} maxWidth="max-w-3xl">
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
-                <input value={empId} onChange={e => setEmpId(e.target.value)} placeholder="Employee ID (số)..." className="h-10 w-full rounded-md border border-zinc-200 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
+        {activeTab === 'list' && (
+          <div className="rounded-xl border border-zinc-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-zinc-900">Thành viên dự án</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{members.length} thành viên</p>
               </div>
-              <input value={role} onChange={e => setRole(e.target.value)} placeholder="Role trong dự án..." className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
+              <Button onClick={openAddMemberModal}><Plus className="mr-2 h-4 w-4" />Thêm thành viên</Button>
             </div>
-            <Button onClick={addMember} disabled={!empId.trim()} className="w-full">Thêm thành viên</Button>
+
+            {filteredMembers.length === 0 ? (
+              <div className="py-14 text-center text-zinc-400">
+                <Users className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Chưa có thành viên nào.</p>
+              </div>
+            ) : (
+              <table className="w-full text-sm text-left">
+                <thead className="text-xs text-zinc-500 uppercase bg-zinc-50 border-b">
+                  <tr>
+                    <th className="px-6 py-3">Tên</th>
+                    <th className="px-6 py-3">Phòng ban</th>
+                    <th className="px-6 py-3">Chức vụ</th>
+                    <th className="px-6 py-3 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map(e => (
+                    <tr key={e.employee_id} className="border-b last:border-0 hover:bg-zinc-50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-zinc-900">{e.full_name}</td>
+                      <td className="px-6 py-4 text-zinc-500">{e.department ?? '—'}</td>
+                      <td className="px-6 py-4"><Badge className="bg-zinc-100 text-zinc-600 border-zinc-200">{e.position ?? '—'}</Badge></td>
+                      <td className="px-6 py-4 text-right">
+                        <Button variant="ghost" size="sm" className="text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => removeMember(e.employee_id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'tree' && (
+          <ProjectTree 
+            treeData={treeData} 
+            onChange={saveTree} 
+            employees={allEmployees}
+            onLoadEmployees={async () => {
+              if (allEmployees.length === 0) {
+                const res = await listEmployees();
+                setAllEmployees(res.employees);
+              }
+            }}
+          />
+        )}
+
+        {/* Add member modal */}
+        <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedEmpIds([]) }} title={`Thêm thành viên — ${liveProject.project_name}`} maxWidth="max-w-3xl">
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
+              <input value={searchEmp} onChange={e => setSearchEmp(e.target.value)} placeholder="Tìm theo tên..." className="h-10 w-full rounded-md border border-zinc-200 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
+            </div>
+            
+            <div className="max-h-80 overflow-y-auto border rounded-md">
+              <table className="w-full text-sm">
+                <thead className="bg-zinc-50 border-b text-xs text-zinc-500 uppercase sticky top-0">
+                  <tr>
+                    <th className="w-12 px-4 py-2 text-center">
+                      <input type="checkbox" 
+                        className="accent-zinc-900"
+                        checked={allEmployees.length > 0 && selectedEmpIds.length === allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).length}
+                        onChange={(ev) => {
+                          const filtered = allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase()))
+                          if (ev.target.checked) setSelectedEmpIds(filtered.map(e => e.id))
+                          else setSelectedEmpIds([])
+                        }}
+                      />
+                    </th>
+                    <th className="px-4 py-2 text-left">Họ và tên</th>
+                    <th className="px-4 py-2 text-left">Phòng ban</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).map(e => (
+                    <tr key={e.id} className="border-b last:border-0 hover:bg-zinc-50 cursor-pointer" onClick={() => {
+                        setSelectedEmpIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])
+                    }}>
+                      <td className="px-4 py-2 text-center" onClick={ev => ev.stopPropagation()}>
+                        <input type="checkbox" className="accent-zinc-900" checked={selectedEmpIds.includes(e.id)} onChange={(ev) => {
+                          if (ev.target.checked) setSelectedEmpIds(prev => [...prev, e.id])
+                          else setSelectedEmpIds(prev => prev.filter(id => id !== e.id))
+                        }} />
+                      </td>
+                      <td className="px-4 py-2 font-medium">{e.full_name}</td>
+                      <td className="px-4 py-2 text-zinc-500">{e.department}</td>
+                    </tr>
+                  ))}
+                  {allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).length === 0 && (
+                    <tr><td colSpan={3} className="px-4 py-8 text-center text-zinc-400">Không tìm thấy ai.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <Button onClick={addMembersBatch} disabled={selectedEmpIds.length === 0} className="w-full">
+              Thêm {selectedEmpIds.length} thành viên đã chọn
+            </Button>
           </div>
         </Modal>
 

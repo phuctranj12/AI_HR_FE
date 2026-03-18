@@ -113,6 +113,26 @@ export async function removeProjectMember(projectId: number, employeeId: number)
   return request(`/projects/${projectId}/members/${employeeId}`, { method: 'DELETE' })
 }
 
+export async function addProjectMembersBatch(projectId: number, employees: any[]): Promise<any> {
+  return request(`/projects/${projectId}/members/batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ employees }),
+  })
+}
+
+export async function getProjectTree(projectId: number): Promise<{ tree_data: any }> {
+  return request(`/projects/${projectId}/tree`)
+}
+
+export async function updateProjectTree(projectId: number, treeData: any): Promise<any> {
+  return request(`/projects/${projectId}/tree`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ tree_data: treeData }),
+  })
+}
+
 export async function updateProject(projectId: number, payload: any): Promise<any> {
   return request(`/projects/${projectId}`, {
     method: 'PATCH',
