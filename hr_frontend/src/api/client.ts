@@ -9,9 +9,14 @@ import type {
 
 const BASE = '/api/v1'
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+interface CustomRequestInit extends RequestInit {
+  timeout?: number
+}
+
+async function request<T>(path: string, init?: CustomRequestInit): Promise<T> {
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  const ms = init?.timeout ?? 15000
+  const timeout = window.setTimeout(() => controller.abort(), ms)
   const res = await fetch(`${BASE}${path}`, { ...init, signal: controller.signal })
   window.clearTimeout(timeout)
   if (!res.ok) {
@@ -30,7 +35,7 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
 }
 
 export async function processDocuments(): Promise<ProcessDocumentsResponse> {
-  return request<ProcessDocumentsResponse>('/documents/process', { method: 'POST' })
+  return request<ProcessDocumentsResponse>('/documents/process', { method: 'POST', timeout: 600000 })
 }
 
 export async function listOutput(): Promise<OutputListResponse> {
@@ -205,7 +210,7 @@ export async function deleteDocumentType(id: number): Promise<any> {
 // ── Faces ────────────────────────────────────────────────────────────────────
 
 export async function matchFaces(): Promise<MatchFacesResponse> {
-  return request<MatchFacesResponse>('/faces/match', { method: 'POST' })
+  return request<MatchFacesResponse>('/faces/match', { method: 'POST', timeout: 600000 })
 }
 
 // ── File preview URL ─────────────────────────────────────────────────────────
