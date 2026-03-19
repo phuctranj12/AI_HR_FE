@@ -3,13 +3,15 @@ import { Users, FolderTree } from 'lucide-react'
 import DocumentsPage from '@/pages/DocumentsPage'
 import ProjectsPage from '@/pages/ProjectsPage'
 import EmployeesPage from '@/pages/EmployeesPage'
+import TerminatedPersonsPage from '@/pages/TerminatedPersonsPage'
 
-type Tab = 'documents' | 'employees' | 'projects'
+type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons'
 
 const TABS: { id: Tab; label: string; Icon: typeof Users }[] = [
   { id: 'documents', label: 'Hồ sơ nhân sự', Icon: FolderTree },
   { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
   { id: 'projects', label: 'Quản lý dự án', Icon: Users },
+  { id: 'terminated_persons', label: 'DS Nghỉ việc', Icon: FolderTree },
 ]
 
 export default function App() {
@@ -47,6 +49,7 @@ export default function App() {
         {active === 'documents' && <DocumentsPage />}
         {active === 'employees' && <EmployeesPage />}
         {active === 'projects' && <ProjectsPage />}
+        {active === 'terminated_persons' && <TerminatedPersonsPage />}
       </main>
     </div>
   )

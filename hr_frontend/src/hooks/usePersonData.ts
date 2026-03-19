@@ -9,7 +9,7 @@ interface UsePersonDataReturn {
   refresh: () => void
 }
 
-export function usePersonData(): UsePersonDataReturn {
+export function usePersonData(terminated: boolean = false): UsePersonDataReturn {
   const [persons, setPersons] = useState<PersonFolder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -17,11 +17,11 @@ export function usePersonData(): UsePersonDataReturn {
   const refresh = useCallback(() => {
     setLoading(true)
     setError(null)
-    listPersons()
+    listPersons(terminated)
       .then(res => setPersons(res.persons))
       .catch(err => setError(err instanceof Error ? err.message : 'Unknown error'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [terminated])
 
   useEffect(() => { refresh() }, [refresh])
 

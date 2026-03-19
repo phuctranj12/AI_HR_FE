@@ -164,9 +164,12 @@ export async function setProjectRequirements(projectId: number, documentTypeIds:
 
 // ── Employees ───────────────────────────────────────────────────────────────
 
-export async function listEmployees(q?: string): Promise<{ employees: any[] }> {
-  const params = q ? `?q=${encodeURIComponent(q)}` : ''
-  return request(`/employees${params}`)
+export async function listEmployees(q?: string, terminated?: boolean): Promise<{ employees: any[] }> {
+  const params = new URLSearchParams()
+  if (q) params.append('q', q)
+  if (terminated) params.append('terminated', 'true')
+  const qs = params.toString()
+  return request(`/employees${qs ? '?' + qs : ''}`)
 }
 
 export async function createEmployee(payload: any): Promise<any> {
@@ -225,8 +228,9 @@ export function downloadPersonUrl(person: string): string {
 
 // ── Persons (Main Storage) ───────────────────────────────────────────────────
 
-export async function listPersons(): Promise<OutputListResponse> {
-  return request<OutputListResponse>('/persons')
+export async function listPersons(terminated?: boolean): Promise<OutputListResponse> {
+  const query = terminated ? '?terminated=true' : ''
+  return request<OutputListResponse>(`/persons${query}`)
 }
 
 export async function deletePersonDataFile(person: string, filename: string): Promise<void> {
