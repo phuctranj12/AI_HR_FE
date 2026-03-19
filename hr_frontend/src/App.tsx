@@ -9,9 +9,10 @@ type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons'
 
 const TABS: { id: Tab; label: string; Icon: typeof Users }[] = [
   { id: 'documents', label: 'Hồ sơ nhân sự', Icon: FolderTree },
-  { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
-  { id: 'projects', label: 'Quản lý dự án', Icon: Users },
+  // { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
   { id: 'terminated_persons', label: 'DS Nghỉ việc', Icon: FolderTree },
+  { id: 'projects', label: 'Quản lý dự án', Icon: Users },
+
 ]
 
 export default function App() {
