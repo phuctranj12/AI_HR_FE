@@ -253,6 +253,22 @@ export async function renamePersonDataFile(person: string, filename: string, new
   })
 }
 
+export async function renamePersonData(person: string, newName: string): Promise<void> {
+  await request(`/persons/${encodeURIComponent(person)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_name: newName }),
+  })
+}
+
+export async function renamePerson(person: string, newName: string): Promise<void> {
+  await request(`/documents/output/${encodeURIComponent(person)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_name: newName }),
+  })
+}
+
 export function personPreviewUrl(person: string, filename: string): string {
   return `/api/v1/persons/${encodeURIComponent(person)}/${encodeURIComponent(filename)}`
 }

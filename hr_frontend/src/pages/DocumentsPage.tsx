@@ -5,7 +5,8 @@ import {
 } from 'lucide-react'
 import {
   filePreviewUrl, deleteFile, renameFile, deletePerson, commitPerson, commitAll, commitFiles,
-  personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile, downloadPersonDataUrl
+  personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile, downloadPersonDataUrl,
+  renamePersonData, renamePerson
 } from '@/api/client'
 import { useOutputData } from '@/hooks/useOutputData'
 import { usePersonData } from '@/hooks/usePersonData'
@@ -352,9 +353,19 @@ export default function DocumentsPage() {
                             onChange={e => setEditingName(e.target.value)}
                             autoFocus
                           />
-                          <Button size="sm" className="bg-green-500 text-white" onClick={() => {
+                          <Button size="sm" className="bg-green-500 text-white" onClick={async () => {
                             if (editingName.trim()) {
-                              setEditingId(null); setEditingName("");
+                              try {
+                                if (tab === 'main') {
+                                  await renamePersonData(p.name, editingName.trim())
+                                } else {
+                                  await renamePerson(p.name, editingName.trim())
+                                }
+                                setEditingId(null); setEditingName("");
+                                refresh()
+                              } catch (err) {
+                                alert(err instanceof Error ? err.message : 'Đổi tên thất bại.')
+                              }
                             }
                           }}>Lưu</Button>
                           <Button size="sm" variant="outline" onClick={() => { setEditingId(null); setEditingName(""); }}>Hủy</Button>
