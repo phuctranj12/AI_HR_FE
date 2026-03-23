@@ -119,11 +119,11 @@ function FileRow({ filename, onPreview, onRename, onDelete, showCheckbox, select
       <td className="px-6 py-4">
         <div className="flex items-center gap-2.5">
           {showCheckbox && (
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               className="mr-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-              checked={selected} 
-              onChange={onToggle} 
+              checked={selected}
+              onChange={onToggle}
             />
           )}
           <FileText className="h-4 w-4 text-zinc-300 shrink-0" />
@@ -174,7 +174,7 @@ export default function DocumentsPage() {
   const [preview, setPreview] = useState<{ person: string; filename: string; type: 'main' | 'staging' } | null>(null)
   const [renaming, setRenaming] = useState<{ person: string; filename: string; type: 'main' | 'staging' } | null>(null)
   const [committing, setCommitting] = useState(false)
-  
+
   // Selection state for staging tab
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
 
@@ -440,46 +440,41 @@ export default function DocumentsPage() {
         {/* Folder view */}
         {!loading && !error && currentFolder && (
           <div>
-            <div className="px-6 py-3 border-b bg-zinc-50/30 flex items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)}>
-                <ArrowLeft className="h-4 w-4 mr-1.5" /> Quay lại
-              </Button>
-              <span className="text-sm text-zinc-500">{liveFolder?.files.length ?? 0} file</span>
-              <div className="ml-auto flex gap-2">
+            <div className="pl-6 pr-0 py-3 border-b bg-zinc-50/30 flex items-center gap-3">
+              <span className="text-sm text-zinc-500">
+                {liveFolder?.files.length ?? 0} file
+              </span>
+
+              {/* Đẩy tất cả sang phải */}
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentFolder(null)}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-1.5" /> Quay lại
+                </Button>
+
                 {tab === 'staging' && selectedFiles.length > 0 && (
-                   <>
-                     <Button variant="outline" size="sm" disabled={committing} onClick={() => setMoveModalOpen(true)}>
-                       Chuyển thư mục...
-                     </Button>
-                     <Button 
-                       className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm" disabled={committing}
-                       onClick={() => handleCommitSelected()}
-                     >
-                       {committing ? 'Đang lưu...' : `Lưu (${selectedFiles.length}) file`}
-                     </Button>
-                   </>
-                )}
-                {tab === 'staging' && selectedFiles.length === 0 && (
-                  <Button
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white" size="sm"
-                    onClick={async () => {
-                      if (!currentFolder) return
-                      setCommitting(true)
-                      try {
-                        await commitPerson(currentFolder.name)
-                        refresh()
-                        setCurrentFolder(null)
-                        alert('Đã lưu hồ sơ vào storage chính.')
-                      } catch (err) {
-                        alert(err instanceof Error ? err.message : 'Lưu thất bại.')
-                      } finally {
-                        setCommitting(false)
-                      }
-                    }}
-                    disabled={committing}
-                  >
-                    {committing ? <><Spinner className="mr-2" />Đang lưu…</> : 'Lưu toàn bộ thư mục'}
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={committing}
+                      onClick={() => setMoveModalOpen(true)}
+                    >
+                      Chuyển thư mục...
+                    </Button>
+
+                    <Button
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                      size="sm"
+                      disabled={committing}
+                      onClick={() => handleCommitSelected()}
+                    >
+                      {committing ? 'Đang lưu...' : `Lưu (${selectedFiles.length}) file`}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -488,11 +483,11 @@ export default function DocumentsPage() {
                 <tr>
                   <th className="px-6 py-3 font-medium flex gap-2 items-center">
                     {tab === 'staging' && (
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
-                        checked={liveFolder?.files.length === selectedFiles.length && liveFolder?.files.length > 0} 
-                        onChange={handleSelectAll} 
+                        checked={liveFolder?.files.length === selectedFiles.length && liveFolder?.files.length > 0}
+                        onChange={handleSelectAll}
                       />
                     )}
                     Tên file
