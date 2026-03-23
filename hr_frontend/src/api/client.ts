@@ -276,3 +276,32 @@ export function personPreviewUrl(person: string, filename: string): string {
 export function downloadPersonDataUrl(person: string): string {
   return `/api/v1/persons/${encodeURIComponent(person)}/download`
 }
+
+export async function downloadPersonsBatch(persons: string[]): Promise<void> {
+  const res = await fetch(`${BASE}/persons/download-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persons }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.detail ?? `HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = persons.length > 0 ? 'Ho_so_nhan_su_batch.zip' : 'Toan_bo_ho_so.zip'
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+export async function deletePersonsBatch(persons: string[]): Promise<void> {
+  await request(`/persons/delete-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persons }),
+  })
+}

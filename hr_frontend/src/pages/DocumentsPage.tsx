@@ -5,8 +5,8 @@ import {
 } from 'lucide-react'
 import {
   filePreviewUrl, deleteFile, renameFile, deletePerson, commitPerson, commitAll, commitFiles,
-  personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile, downloadPersonDataUrl,
-  renamePersonData, renamePerson
+  personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile,
+  renamePersonData, renamePerson, downloadPersonsBatch, deletePersonsBatch
 } from '@/api/client'
 import { useOutputData } from '@/hooks/useOutputData'
 import { usePersonData } from '@/hooks/usePersonData'
@@ -177,6 +177,8 @@ export default function DocumentsPage() {
 
   // Selection state for staging tab
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  // Selection state for main tab folders
+  const [selectedMainFolders, setSelectedMainFolders] = useState<string[]>([])
 
   const liveFolder = currentFolder ? (persons.find(p => p.name === currentFolder.name) ?? null) : null
 
@@ -232,6 +234,36 @@ export default function DocumentsPage() {
       refresh()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+    }
+  }
+
+  const handleBatchDownload = async (targets: string[]) => {
+    setCommitting(true)
+    try {
+      await downloadPersonsBatch(targets)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Tải hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+      setSelectedMainFolders([])
+    }
+  }
+
+  const handleBatchDelete = async (targets: string[]) => {
+    const isAll = targets.length === 0
+    if (!window.confirm(isAll 
+      ? 'Bạn có CHẮC CHẮN muốn XÓA TẤT CẢ hồ sơ nhân sự hiện tại không?'
+      : `Bạn có chắc muốn xóa ${targets.length} hồ sơ đã chọn?`)) return
+    setCommitting(true)
+    try {
+      await deletePersonsBatch(targets)
+      refresh()
+      alert('Đã xóa thành công.')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+      setSelectedMainFolders([])
     }
   }
 
@@ -326,6 +358,37 @@ export default function DocumentsPage() {
           )}
         </div>
 
+        {tab === 'main' && !currentFolder && (
+          <div className="px-6 py-2 border-b flex gap-2 items-center bg-zinc-50/50">
+             {selectedMainFolders.length > 0 ? (
+                <>
+                  <span className="text-sm font-medium text-emerald-700 mr-2 flex items-center gap-1.5 bg-emerald-100 px-2 py-1 rounded-md shadow-sm">
+                    <CheckCircle2 className="w-4 h-4" /> Đã chọn {selectedMainFolders.length} hồ sơ
+                  </span>
+                  <Button size="sm" variant="outline" disabled={committing} onClick={() => handleBatchDownload(selectedMainFolders)}>
+                    {committing ? <Spinner className="w-4 h-4 mr-1"/> : <Download className="h-4 w-4 mr-1"/>} Tải {selectedMainFolders.length} mục
+                  </Button>
+                  <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
+                    <Trash2 className="h-4 w-4 mr-1"/> Xóa {selectedMainFolders.length} mục
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
+                    Bỏ chọn
+                  </Button>
+                </>
+             ) : (
+                <>
+                  <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
+                  <Button size="sm" variant="outline" disabled={committing || filtered.length === 0} onClick={() => handleBatchDownload([])}>
+                    {committing ? <Spinner className="w-4 h-4 mr-1"/> : <Download className="h-4 w-4 mr-1"/>} Tải Tất Cả
+                  </Button>
+                  <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
+                    <Trash2 className="h-4 w-4 mr-1"/> Xóa Tất Cả
+                  </Button>
+                </>
+             )}
+          </div>
+        )}
+
         {loading && <div className="flex items-center justify-center gap-2 py-16 text-zinc-400 text-sm"><Spinner /> Đang tải…</div>}
         {error && !loading && <div className="py-12 text-center text-red-500 text-sm">{error}</div>}
 
@@ -335,7 +398,23 @@ export default function DocumentsPage() {
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-zinc-500 uppercase tracking-wide bg-zinc-50 border-b">
                 <tr>
-                  <th className="px-6 py-3 font-medium">Tên thư mục (Nhân viên)</th>
+                  <th className="px-6 py-3 font-medium flex items-center gap-3">
+                    {tab === 'main' && (
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
+                        checked={filtered.length > 0 && selectedMainFolders.length === filtered.length}
+                        onChange={() => {
+                          if (selectedMainFolders.length === filtered.length) {
+                            setSelectedMainFolders([])
+                          } else {
+                            setSelectedMainFolders(filtered.map(f => f.name))
+                          }
+                        }}
+                      />
+                    )}
+                    Tên thư mục (Nhân viên)
+                  </th>
                   <th className="px-6 py-3 font-medium">Số file</th>
                   <th className="px-6 py-3 font-medium">Tình trạng hồ sơ</th>
                   <th className="px-6 py-3 font-medium text-right">Thao tác</th>
@@ -343,7 +422,7 @@ export default function DocumentsPage() {
               </thead>
               <tbody>
                 {filtered.map(p => (
-                  <tr key={p.name} className="border-b last:border-0 hover:bg-zinc-50 transition-colors">
+                  <tr key={p.name} className={`border-b last:border-0 hover:bg-zinc-50 transition-colors ${selectedMainFolders.includes(p.name) ? 'bg-indigo-50/30' : ''}`}>
                     <td className="px-6 py-4">
                       {editingId === p.name ? (
                         <div className="flex gap-2 items-center">
@@ -372,6 +451,20 @@ export default function DocumentsPage() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
+                          {tab === 'main' && (
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
+                              checked={selectedMainFolders.includes(p.name)}
+                              onChange={() => {
+                                if (selectedMainFolders.includes(p.name)) {
+                                  setSelectedMainFolders(selectedMainFolders.filter(n => n !== p.name))
+                                } else {
+                                  setSelectedMainFolders([...selectedMainFolders, p.name])
+                                }
+                              }}
+                            />
+                          )}
                           <span className="font-medium text-zinc-900 cursor-pointer hover:underline" onClick={() => setCurrentFolder(p)}>
                             {p.display_name ?? p.name}
                           </span>
@@ -411,13 +504,6 @@ export default function DocumentsPage() {
                               alert(err instanceof Error ? err.message : 'Lưu thất bại.')
                             }
                           }}>Lưu hồ sơ</Button>
-                        )}
-                        {tab === 'main' && (
-                          <a href={downloadPersonDataUrl(p.name)} download className="inline-flex">
-                            <Button size="sm" variant="outline">
-                              <Download className="h-3.5 w-3.5 mr-1" /> Tải ZIP
-                            </Button>
-                          </a>
                         )}
                         <Button size="sm" variant="outline" onClick={() => { setEditingId(p.name); setEditingName(p.name); }}>Sửa tên</Button>
                         <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>Xóa</Button>
