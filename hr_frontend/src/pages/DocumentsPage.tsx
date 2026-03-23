@@ -446,7 +446,7 @@ export default function DocumentsPage() {
               </span>
 
               {/* Đẩy tất cả sang phải */}
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-2 mr-3">
                 <Button
                   variant="outline"
                   size="sm"
