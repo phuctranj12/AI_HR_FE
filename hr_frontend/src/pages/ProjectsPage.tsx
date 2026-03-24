@@ -458,8 +458,8 @@ export default function ProjectsPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-zinc-700">Ngày kết thúc</label>
                 <input type="date" className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm"
-                  min={editForm.start_date}
                   value={editForm.end_date}
+                  min={editForm.start_date}
                   onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))}
                 />
               </div>
