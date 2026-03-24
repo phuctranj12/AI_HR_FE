@@ -19,6 +19,8 @@ import {
   updateProjectTree,
 } from '@/api/client'
 import ProjectTree from '@/components/ProjectTree'
+import { toast } from 'react-hot-toast'
+import { useConfirm } from '@/hooks/useConfirm'
 
 interface Project {
   id: number
@@ -60,6 +62,7 @@ function projectStatusInfo(endDate?: string | null) {
 }
 
 export default function ProjectsPage() {
+  const confirm = useConfirm()
   const [projects, setProjects] = useState<Project[]>([])
   const [selected, setSelected] = useState<Project | null>(null)
   const [newOpen, setNewOpen] = useState(false)
@@ -81,7 +84,7 @@ export default function ProjectsPage() {
     start_date: '',
     end_date: '',
   })
-  
+
   // New state
   const [activeTab, setActiveTab] = useState<'list' | 'tree'>('list')
   const [allEmployees, setAllEmployees] = useState<any[]>([])
@@ -134,6 +137,15 @@ export default function ProjectsPage() {
 
   const createProject = () => {
     if (!newProj.project_name) return
+    if (newProj.start_date && newProj.end_date) {
+      const start = new Date(newProj.start_date)
+      const end = new Date(newProj.end_date)
+
+      if (start > end) {
+        toast.error('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc')
+        return
+      }
+    }
     createProjectApi()
   }
 
@@ -172,8 +184,9 @@ export default function ProjectsPage() {
       setAddOpen(false)
       setSelectedEmpIds([])
       await refreshMembers(selected.id)
+      toast.success('Thêm thành viên thành công.')
     } catch (e) {
-      alert('Thêm thất bại: ' + (e instanceof Error ? e.message : ''))
+      toast.error('Thêm thất bại: ' + (e instanceof Error ? e.message : ''))
     }
   }
 
@@ -196,8 +209,9 @@ export default function ProjectsPage() {
     try {
       await updateProjectTree(selected.id, data)
       setTreeData(data)
+      toast.success('Đã lưu sơ đồ tổ chức.')
     } catch (e) {
-      alert('Lưu thất bại: ' + (e instanceof Error ? e.message : ''))
+      toast.error('Lưu thất bại: ' + (e instanceof Error ? e.message : ''))
     }
   }
 
@@ -256,13 +270,15 @@ export default function ProjectsPage() {
             <Button
               variant="destructive"
               onClick={async () => {
-                if (!confirm(`Xóa dự án "${liveProject.project_name}"?`)) return
+                const ok = await confirm(`Xóa dự án "${liveProject.project_name}"?`, { variant: 'destructive', confirmText: 'Xóa' })
+                if (!ok) return
                 try {
                   await deleteProject(liveProject.id)
                   setSelected(null)
+                  toast.success('Đã xóa dự án.')
                   refreshProjects()
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : 'Xóa thất bại.')
+                  toast.error(e instanceof Error ? e.message : 'Xóa thất bại.')
                 }
               }}
             >
@@ -272,13 +288,13 @@ export default function ProjectsPage() {
         </div>
 
         <div className="flex space-x-4 border-b">
-          <button 
+          <button
             className={`pb-2 text-sm font-medium border-b-2 ${activeTab === 'list' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
             onClick={() => setActiveTab('list')}
           >
             Danh sách nhân sự
           </button>
-          <button 
+          <button
             className={`pb-2 text-sm font-medium border-b-2 ${activeTab === 'tree' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'}`}
             onClick={() => setActiveTab('tree')}
           >
@@ -331,9 +347,9 @@ export default function ProjectsPage() {
         )}
 
         {activeTab === 'tree' && (
-          <ProjectTree 
-            treeData={treeData} 
-            onChange={saveTree} 
+          <ProjectTree
+            treeData={treeData}
+            onChange={saveTree}
             employees={allEmployees}
             onLoadEmployees={async () => {
               if (allEmployees.length === 0) {
@@ -351,13 +367,13 @@ export default function ProjectsPage() {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
               <input value={searchEmp} onChange={e => setSearchEmp(e.target.value)} placeholder="Tìm theo tên..." className="h-10 w-full rounded-md border border-zinc-200 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
             </div>
-            
+
             <div className="max-h-80 overflow-y-auto border rounded-md">
               <table className="w-full text-sm">
                 <thead className="bg-zinc-50 border-b text-xs text-zinc-500 uppercase sticky top-0">
                   <tr>
                     <th className="w-12 px-4 py-2 text-center">
-                      <input type="checkbox" 
+                      <input type="checkbox"
                         className="accent-zinc-900"
                         checked={allEmployees.length > 0 && selectedEmpIds.length === allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).length}
                         onChange={(ev) => {
@@ -374,7 +390,7 @@ export default function ProjectsPage() {
                 <tbody>
                   {allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).map(e => (
                     <tr key={e.id} className="border-b last:border-0 hover:bg-zinc-50 cursor-pointer" onClick={() => {
-                        setSelectedEmpIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])
+                      setSelectedEmpIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])
                     }}>
                       <td className="px-4 py-2 text-center" onClick={ev => ev.stopPropagation()}>
                         <input type="checkbox" className="accent-zinc-900" checked={selectedEmpIds.includes(e.id)} onChange={(ev) => {
@@ -442,6 +458,7 @@ export default function ProjectsPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-zinc-700">Ngày kết thúc</label>
                 <input type="date" className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm"
+                  min={editForm.start_date}
                   value={editForm.end_date}
                   onChange={e => setEditForm(f => ({ ...f, end_date: e.target.value }))}
                 />
@@ -462,8 +479,9 @@ export default function ProjectsPage() {
                   await refreshProjects()
                   const updated = (await listProjects()).projects.find((p: any) => p.id === liveProject.id) as Project | undefined
                   if (updated) setSelected(updated)
+                  toast.success('Cập nhật thành công.')
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : 'Cập nhật thất bại.')
+                  toast.error(e instanceof Error ? e.message : 'Cập nhật thất bại.')
                 }
               }}
               disabled={!editForm.project_name.trim()}
@@ -520,9 +538,9 @@ export default function ProjectsPage() {
                 try {
                   await setProjectRequirements(liveProject.id, reqIds)
                   setReqOpen(false)
-                  alert('Đã lưu giấy tờ yêu cầu cho dự án.')
+                  toast.success('Đã lưu giấy tờ yêu cầu cho dự án.')
                 } catch (e) {
-                  alert(e instanceof Error ? e.message : 'Lưu thất bại.')
+                  toast.error(e instanceof Error ? e.message : 'Lưu thất bại.')
                 }
               }}
               className="w-full"
@@ -550,8 +568,9 @@ export default function ProjectsPage() {
                     await createDocumentType(name)
                     setNewDocType('')
                     await refreshDocTypes()
+                    toast.success('Đã thêm loại giấy tờ.')
                   } catch (e) {
-                    alert(e instanceof Error ? e.message : 'Tạo thất bại.')
+                    toast.error(e instanceof Error ? e.message : 'Tạo thất bại.')
                   }
                 }}
               >
@@ -577,13 +596,15 @@ export default function ProjectsPage() {
                           size="sm"
                           className="text-red-400 hover:text-red-600 hover:bg-red-50"
                           onClick={async () => {
-                            if (!confirm(`Xóa loại giấy tờ "${dt.type_name}"?`)) return
+                            const ok = await confirm(`Xóa loại giấy tờ "${dt.type_name}"?`, { variant: 'destructive', confirmText: 'Xóa' })
+                            if (!ok) return
                             try {
                               await deleteDocumentType(dt.id)
                               await refreshDocTypes()
                               setReqIds(prev => prev.filter(x => x !== dt.id))
+                              toast.success('Đã xóa loại giấy tờ.')
                             } catch (e) {
-                              alert(e instanceof Error ? e.message : 'Xóa thất bại.')
+                              toast.error(e instanceof Error ? e.message : 'Xóa thất bại.')
                             }
                           }}
                         >

@@ -3,6 +3,8 @@ import { FileText, Eye, ChevronRight, ArrowLeft, Search, X, Pencil, Trash2, Down
 import { usePersonData } from '@/hooks/usePersonData'
 import { Button, Badge, Modal, Spinner } from '@/components/ui'
 import { deletePersonData, deletePersonDataFile, renamePersonDataFile, personPreviewUrl, downloadPersonDataUrl } from '@/api/client'
+import { toast } from 'react-hot-toast'
+import { useConfirm } from '@/hooks/useConfirm'
 import type { PersonFolder } from '@/types'
 
 const DOC_LABELS: Record<string, string> = {
@@ -122,6 +124,7 @@ function FileRow({ filename, onPreview, onRename, onDelete }: {
 }
 
 export default function TerminatedPersonsPage() {
+  const confirm = useConfirm()
   // Fetch ONLY terminated persons
   const { persons, loading, error, refresh } = usePersonData(true)
 
@@ -134,23 +137,27 @@ export default function TerminatedPersonsPage() {
   const liveFolder = currentFolder ? (persons.find(p => p.name === currentFolder.name) ?? null) : null
 
   const handleDeleteFile = async (person: string, filename: string) => {
-    if (!window.confirm(`Xóa VĨNH VIỄN file "${filename}"? Hành động này không thể hoàn tác.`)) return
+    const ok = await confirm(`Xóa VĨNH VIỄN file "${filename}"? Hành động này không thể hoàn tác.`, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
     try {
       await deletePersonDataFile(person, filename)
       refresh()
+      toast.success('Đã xóa thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
     }
   }
 
   const handleDeleteFolder = async (person: string) => {
-    if (!window.confirm('CẢNH BÁO: Xóa VĨNH VIỄN hồ sơ, nhân sự, và truy vết dự án của nhân viên đã nghỉ việc này?')) return
+    const ok = await confirm('CẢNH BÁO: Xóa VĨNH VIỄN hồ sơ, nhân sự, và truy vết dự án của nhân viên đã nghỉ việc này?', { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
     try {
       await deletePersonData(person)
       refresh()
       if (currentFolder?.name === person) setCurrentFolder(null)
+      toast.success('Đã xóa hồ sơ thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
     }
   }
 

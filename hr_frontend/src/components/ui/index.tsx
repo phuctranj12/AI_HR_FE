@@ -1,5 +1,5 @@
 import { type ReactNode, type ButtonHTMLAttributes } from 'react'
-import { X } from 'lucide-react'
+import { X, CheckCircle2, AlertCircle } from 'lucide-react'
 
 // ── Button ────────────────────────────────────────────────────────────────────
 type BtnVariant = 'default' | 'outline' | 'ghost' | 'destructive'
@@ -75,19 +75,26 @@ export function Spinner({ className = '' }: { className?: string }) {
   )
 }
 
-// ── Toast (simple inline) ─────────────────────────────────────────────────────
-interface ToastProps { message: string; type?: 'info' | 'success' | 'error' }
+// ── Styled Log Container (formerly Toast) ─────────────────────────────────────────────────────
+interface StyledAlertProps { message: string; type?: 'info' | 'success' | 'error' }
 
-export function Toast({ message, type = 'info' }: ToastProps) {
+export function Toast({ message, type = 'info' }: StyledAlertProps) {
   const styles = {
-    info: 'bg-blue-50 text-blue-700 border-blue-200',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    error: 'bg-red-50 text-red-700 border-red-200',
+    info: 'bg-indigo-50/50 text-indigo-700 border-indigo-200/50 shadow-sm shadow-indigo-100/50',
+    success: 'bg-emerald-50/70 text-emerald-700 border-emerald-200/60 shadow-sm shadow-emerald-100/50',
+    error: 'bg-red-50/70 text-red-700 border-red-200/60 shadow-sm shadow-red-100/50',
   }
+
+  const icons = {
+    info: <Spinner className="w-4 h-4 text-indigo-600" />,
+    success: <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />,
+    error: <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+  }
+
   return (
-    <div className={`flex items-center gap-2.5 px-4 py-3 rounded-lg border text-sm ${styles[type]}`}>
-      {type === 'info' && <Spinner />}
-      <span>{message}</span>
+    <div className={`flex items-start gap-3 px-4 py-3.5 rounded-xl border backdrop-blur-sm transition-all duration-300 ${styles[type]}`}>
+      <div className="mt-0.5">{icons[type]}</div>
+      <span className="text-sm font-medium leading-relaxed tracking-wide">{message}</span>
     </div>
   )
 }

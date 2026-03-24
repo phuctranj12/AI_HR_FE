@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Printer, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { toast } from 'react-hot-toast'
+import { useConfirm } from '@/hooks/useConfirm'
 
 export interface TreeNode {
   id: string
@@ -18,6 +20,7 @@ interface ProjectTreeProps {
 }
 
 export default function ProjectTree({ treeData, onChange, employees, onLoadEmployees }: ProjectTreeProps) {
+  const confirm = useConfirm()
   const [tree, setTree] = useState<TreeNode>({
     id: 'root', title: 'Project Manager', employee_id: null, employee_name: null, children: []
   })
@@ -81,12 +84,17 @@ export default function ProjectTree({ treeData, onChange, employees, onLoadEmplo
     notifyChange(newTree)
   }
 
-  const handleRemoveNode = (nodeId: string) => {
-    if (nodeId === 'root') return alert('Không thể xóa Project Manager gốc.')
-    if (!confirm('Bạn có chắc muốn xóa nhánh này và tất cả cấp dưới?')) return
+  const handleRemoveNode = async (nodeId: string) => {
+    if (nodeId === 'root') {
+      toast.error('Không thể xóa Project Manager gốc.')
+      return
+    }
+    const ok = await confirm('Bạn có chắc muốn xóa nhánh này và tất cả cấp dưới?', { variant: 'destructive', confirmText: 'Xóa nhánh' })
+    if (!ok) return
     const newTree = JSON.parse(JSON.stringify(tree))
     removeChildNode(newTree, nodeId)
     notifyChange(newTree)
+    toast.success('Đã xóa nhánh thành công.')
   }
 
   const handleClearEmp = (nodeId: string) => {

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Search, Trash2, Pencil, X } from 'lucide-react'
 import { Button, Modal, Spinner } from '@/components/ui'
 import { createEmployee, deleteEmployee, listEmployees, updateEmployee } from '@/api/client'
+import { toast } from 'react-hot-toast'
+import { useConfirm } from '@/hooks/useConfirm'
 
 interface EmployeeRow {
   id: number
@@ -15,6 +17,7 @@ interface EmployeeRow {
 }
 
 export default function EmployeesPage() {
+  const confirm = useConfirm()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [employees, setEmployees] = useState<EmployeeRow[]>([])
@@ -133,12 +136,14 @@ export default function EmployeesPage() {
                         size="sm"
                         className="text-red-400 hover:text-red-600 hover:bg-red-50"
                         onClick={async () => {
-                          if (!confirm(`Xóa nhân sự "${e.full_name}"?`)) return
+                          const ok = await confirm(`Xóa nhân sự "${e.full_name}"?`, { variant: 'destructive', confirmText: 'Xóa' })
+                          if (!ok) return
                           try {
                             await deleteEmployee(e.id)
                             refresh()
+                            toast.success('Đã xóa nhân sự.')
                           } catch (err) {
-                            alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+                            toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
                           }
                         }}
                       >
@@ -227,8 +232,9 @@ export default function EmployeesPage() {
                 setCreateOpen(false)
                 setForm({ id: 0, full_name: '', employee_code: '', department: '', position: '', phone: '', email: '' })
                 refresh()
+                toast.success('Thêm nhân sự thành công.')
               } catch (err) {
-                alert(err instanceof Error ? err.message : 'Tạo thất bại.')
+                toast.error(err instanceof Error ? err.message : 'Tạo thất bại.')
               } finally {
                 setSaving(false)
               }
@@ -311,8 +317,9 @@ export default function EmployeesPage() {
                   })
                   setEditOpen(false)
                   refresh()
+                  toast.success('Cập nhật thông tin thành công.')
                 } catch (err) {
-                  alert(err instanceof Error ? err.message : 'Cập nhật thất bại.')
+                  toast.error(err instanceof Error ? err.message : 'Cập nhật thất bại.')
                 } finally {
                   setSaving(false)
                 }

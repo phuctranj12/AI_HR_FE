@@ -1,5 +1,7 @@
 
 import React, { useState } from "react";
+import { useConfirm } from '@/hooks/useConfirm';
+import { toast } from 'react-hot-toast';
 
 interface Folder {
   id: number;
@@ -12,6 +14,7 @@ const initialFolders: Folder[] = [
 ];
 
 const EmployeeFolders: React.FC = () => {
+  const confirm = useConfirm();
   const [folders, setFolders] = useState<Folder[]>(initialFolders);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -46,9 +49,11 @@ const EmployeeFolders: React.FC = () => {
     setEditName("");
   };
 
-  const handleDelete = (id: number) => {
-    if (window.confirm("Bạn có chắc muốn xóa nhân viên này?")) {
+  const handleDelete = async (id: number) => {
+    const ok = await confirm("Bạn có chắc muốn xóa nhân viên này?", { variant: 'destructive', confirmText: 'Xóa' });
+    if (ok) {
       setFolders(folders.filter(f => f.id !== id));
+      toast.success('Đã xóa nhân viên.');
     }
   };
 

@@ -15,6 +15,8 @@ import { Button, Badge, Modal, Spinner } from '@/components/ui'
 import UploadDialog from '@/components/UploadDialog'
 import FaceMatchDialog from '@/components/FaceMatchDialog'
 import MoveToModal from '@/components/MoveToModal'
+import { toast } from 'react-hot-toast'
+import { useConfirm } from '@/hooks/useConfirm'
 
 import type { PersonFolder } from '@/types'
 
@@ -153,6 +155,7 @@ function FileRow({ filename, onPreview, onRename, onDelete, showCheckbox, select
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function DocumentsPage() {
   const [tab, setTab] = useState<'main' | 'staging'>('main')
+  const confirm = useConfirm()
 
   const { persons: stagingPersons, loading: stagingLoading, error: stagingError, refresh: refreshStaging } = useOutputData()
   const { persons: mainPersons, loading: mainLoading, error: mainError, refresh: refreshMain } = usePersonData()
@@ -201,16 +204,17 @@ export default function DocumentsPage() {
       if (selectedFiles.length === liveFolder?.files.length) {
         setCurrentFolder(null)
       }
-      alert('Đã lưu các file chọn thành công.')
+      toast.success('Đã lưu các file chọn thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lưu thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Lưu thất bại.')
     } finally {
       setCommitting(false)
     }
   }
 
   const handleDeleteFile = async (person: string, filename: string) => {
-    if (!confirm(`Xóa file "${filename}"? Hành động này không thể hoàn tác.`)) return
+    const ok = await confirm(`Xóa file "${filename}"? Hành động này không thể hoàn tác.`, { variant: 'destructive' })
+    if (!ok) return
     try {
       if (tab === 'main') {
         await deletePersonDataFile(person, filename)
@@ -218,13 +222,15 @@ export default function DocumentsPage() {
         await deleteFile(person, filename)
       }
       refresh()
+      toast.success('Đã xóa thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
     }
   }
 
   const handleDeleteFolder = async (person: string) => {
-    if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này?')) return
+    const ok = await confirm('Bạn có chắc muốn xóa hồ sơ này?', { variant: 'destructive', confirmText: 'Xóa' })
+    if (!ok) return
     try {
       if (tab === 'main') {
         await deletePersonData(person)
@@ -232,8 +238,9 @@ export default function DocumentsPage() {
         await deletePerson(person)
       }
       refresh()
+      toast.success('Đã xóa hồ sơ thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
     }
   }
 
@@ -242,7 +249,7 @@ export default function DocumentsPage() {
     try {
       await downloadPersonsBatch(targets)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Tải hàng loạt thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Tải hàng loạt thất bại.')
     } finally {
       setCommitting(false)
       setSelectedMainFolders([])
@@ -251,16 +258,18 @@ export default function DocumentsPage() {
 
   const handleBatchDelete = async (targets: string[]) => {
     const isAll = targets.length === 0
-    if (!window.confirm(isAll 
+    const msg = isAll 
       ? 'Bạn có CHẮC CHẮN muốn XÓA TẤT CẢ hồ sơ nhân sự hiện tại không?'
-      : `Bạn có chắc muốn xóa ${targets.length} hồ sơ đã chọn?`)) return
+      : `Bạn có chắc muốn xóa ${targets.length} hồ sơ đã chọn?`
+    const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa' })
+    if (!ok) return
     setCommitting(true)
     try {
       await deletePersonsBatch(targets)
       refresh()
-      alert('Đã xóa thành công.')
+      toast.success('Đã xóa thành công.')
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
+      toast.error(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
     } finally {
       setCommitting(false)
       setSelectedMainFolders([])
@@ -327,14 +336,15 @@ export default function DocumentsPage() {
             </div>
             {tab === 'staging' && stagingPersons.length > 0 && (
               <Button disabled={committing} onClick={async () => {
-                if (!confirm("Hệ thống sẽ duyệt và lưu TẤT CẢ thư mục đang chờ?")) return
+                const ok = await confirm("Hệ thống sẽ duyệt và lưu TẤT CẢ thư mục đang chờ?")
+                if (!ok) return
                 setCommitting(true)
                 try {
                   await commitAll()
                   refresh()
-                  alert("Đã lưu hoàn tất tất cả hồ sơ.")
+                  toast.success("Đã lưu hoàn tất tất cả hồ sơ.")
                 } catch (err) {
-                  alert(err instanceof Error ? err.message : "Lỗi duyệt hồ sơ")
+                  toast.error(err instanceof Error ? err.message : "Lỗi duyệt hồ sơ")
                 } finally {
                   setCommitting(false)
                 }
@@ -442,8 +452,9 @@ export default function DocumentsPage() {
                                 }
                                 setEditingId(null); setEditingName("");
                                 refresh()
+                                toast.success("Đã đổi tên thành công.")
                               } catch (err) {
-                                alert(err instanceof Error ? err.message : 'Đổi tên thất bại.')
+                                toast.error(err instanceof Error ? err.message : 'Đổi tên thất bại.')
                               }
                             }
                           }}>Lưu</Button>
@@ -499,9 +510,9 @@ export default function DocumentsPage() {
                             try {
                               await commitPerson(p.name)
                               refresh()
-                              alert('Đã lưu hồ sơ vào storage chính.')
+                              toast.success('Đã lưu hồ sơ vào storage chính.')
                             } catch (err) {
-                              alert(err instanceof Error ? err.message : 'Lưu thất bại.')
+                              toast.error(err instanceof Error ? err.message : 'Lưu thất bại.')
                             }
                           }}>Lưu hồ sơ</Button>
                         )}
