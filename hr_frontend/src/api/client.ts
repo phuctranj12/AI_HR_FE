@@ -164,10 +164,12 @@ export async function setProjectRequirements(projectId: number, documentTypeIds:
 
 // ── Employees ───────────────────────────────────────────────────────────────
 
-export async function listEmployees(q?: string, terminated?: boolean): Promise<{ employees: any[] }> {
+export async function listEmployees(q?: string, terminated?: boolean, page: number = 1, size: number = 50): Promise<{ total: number, employees: any[] }> {
   const params = new URLSearchParams()
   if (q) params.append('q', q)
   if (terminated) params.append('terminated', 'true')
+  params.append('page', page.toString())
+  params.append('size', size.toString())
   const qs = params.toString()
   return request(`/employees${qs ? '?' + qs : ''}`)
 }
@@ -303,5 +305,53 @@ export async function deletePersonsBatch(persons: string[]): Promise<void> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persons }),
+  })
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+
+export interface MissingDocument {
+  employee_id: number
+  employee_code: string | null
+  full_name: string
+  folder_path: string
+  missing_docs: string[]
+}
+
+export interface ExpiredDocument {
+  employee_id: number
+  employee_code: string | null
+  full_name: string
+  folder_path: string
+  document_id: number
+  document_name: string
+  doc_type: string
+  end_date: string
+}
+
+export async function getMissingDocuments(): Promise<MissingDocument[]> {
+  return request('/notifications/missing-documents')
+}
+
+export async function getExpiredDocuments(days: number = 30): Promise<ExpiredDocument[]> {
+  return request(`/notifications/expired-documents?days=${days}`)
+}
+
+export async function updateDocumentFile(docId: number, file: File): Promise<any> {
+  const form = new FormData()
+  form.append('file', file)
+  return request(`/documents/${docId}/file`, { 
+    method: 'PATCH', 
+    body: form 
+  })
+}
+
+// ── Search Folders ──────────────────────────────────────────────────────────
+
+export async function searchFolders(params: { name?: string, cccd?: string, mnv?: string }): Promise<OutputListResponse> {
+  return request('/persons/search-folders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
   })
 }

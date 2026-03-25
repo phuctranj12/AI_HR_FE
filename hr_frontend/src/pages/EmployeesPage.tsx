@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Search, Trash2, Pencil, X } from 'lucide-react'
 import { Button, Modal, Spinner } from '@/components/ui'
 import { createEmployee, deleteEmployee, listEmployees, updateEmployee } from '@/api/client'
@@ -35,12 +35,18 @@ export default function EmployeesPage() {
     email: '',
   })
 
-  const refresh = async (query?: string) => {
+  const [page, setPage] = useState(1)
+  const [size, setSize] = useState(50)
+  const [total, setTotal] = useState(0)
+  const [debouncedQ, setDebouncedQ] = useState('')
+
+  const refresh = async (query = debouncedQ, p = page, s = size) => {
     setLoading(true)
     setError(null)
     try {
-      const res = await listEmployees(query)
+      const res = await listEmployees(query, false, p, s)
       setEmployees(res.employees as EmployeeRow[])
+      setTotal(res.total || 0)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error')
     } finally {
@@ -48,17 +54,18 @@ export default function EmployeesPage() {
     }
   }
 
-  useEffect(() => { refresh() }, [])
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQ(q)
+      // Reset page when search changes
+      if (q !== debouncedQ) setPage(1)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [q])
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    if (!needle) return employees
-    return employees.filter(e =>
-      e.full_name.toLowerCase().includes(needle) ||
-      (e.employee_code ?? '').toLowerCase().includes(needle) ||
-      (e.department ?? '').toLowerCase().includes(needle)
-    )
-  }, [employees, q])
+  useEffect(() => {
+    refresh(debouncedQ, page, size)
+  }, [debouncedQ, page, size])
 
   return (
     <div className="space-y-6">
@@ -105,7 +112,7 @@ export default function EmployeesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(e => (
+              {employees.map(e => (
                 <tr key={e.id} className="border-b last:border-0 hover:bg-zinc-50 transition-colors">
                   <td className="px-6 py-4 font-medium text-zinc-900">{e.full_name}</td>
                   <td className="px-6 py-4 text-zinc-500">{e.employee_code ?? '—'}</td>
@@ -153,13 +160,23 @@ export default function EmployeesPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {employees.length === 0 && (
                 <tr><td colSpan={5} className="px-6 py-12 text-center text-zinc-400 text-sm">
                   Không có nhân sự nào.
                 </td></tr>
               )}
             </tbody>
           </table>
+        )}
+        {!loading && !error && employees.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-zinc-200">
+            <span className="text-sm text-zinc-500">Tổng cộng {total} nhân sự</span>
+            <div className="flex items-center gap-2">
+              <Button disabled={page === 1} onClick={() => setPage(p => p - 1)} variant="outline" size="sm">Trang trước</Button>
+              <span className="text-sm">Trang {page} / {Math.max(1, Math.ceil(total / size))}</span>
+              <Button disabled={page >= Math.ceil(total / size)} onClick={() => setPage(p => p + 1)} variant="outline" size="sm">Trang sau</Button>
+            </div>
+          </div>
         )}
       </div>
 

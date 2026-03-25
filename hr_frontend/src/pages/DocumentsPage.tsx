@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Upload, FileText, Eye, CheckCircle2, ShieldAlert,
   ChevronRight, ArrowLeft, Search, X, ScanFace, Pencil, Trash2, Download
@@ -6,7 +6,8 @@ import {
 import {
   filePreviewUrl, deleteFile, renameFile, deletePerson, commitPerson, commitAll, commitFiles,
   personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile,
-  renamePersonData, renamePerson, downloadPersonsBatch, deletePersonsBatch, clearOutput
+  renamePersonData, renamePerson, downloadPersonsBatch, deletePersonsBatch, clearOutput,
+  searchFolders
 } from '@/api/client'
 import { useOutputData } from '@/hooks/useOutputData'
 import { usePersonData } from '@/hooks/usePersonData'
@@ -172,7 +173,11 @@ export default function DocumentsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
   const [currentFolder, setCurrentFolder] = useState<PersonFolder | null>(null)
-  const [searchName, setSearchName] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchType, setSearchType] = useState<'name' | 'cccd' | 'mnv'>('name')
+  const [searchResults, setSearchResults] = useState<PersonFolder[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  
   const [uploadOpen, setUploadOpen] = useState(false)
   const [faceOpen, setFaceOpen] = useState(false)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
@@ -240,6 +245,28 @@ export default function DocumentsPage() {
   const [selectedStagingFolders, setSelectedStagingFolders] = useState<string[]>([])
 
   const liveFolder = currentFolder ? (persons.find(p => p.name === currentFolder.name) ?? null) : null
+
+  // Search effect
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([])
+        return
+      }
+      setIsSearching(true)
+      try {
+        const payload: any = {}
+        payload[searchType] = searchQuery.trim()
+        const res = await searchFolders(payload)
+        setSearchResults(res.persons)
+      } catch (e) {
+        toast.error('Lỗi khi tìm kiếm hồ sơ')
+      } finally {
+        setIsSearching(false)
+      }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [searchQuery, searchType])
 
 
   const handleSelectAll = () => {
@@ -373,7 +400,7 @@ export default function DocumentsPage() {
     }
   }
 
-  const filtered = persons.filter(p => p.name.toLowerCase().includes(searchName.toLowerCase()))
+  const filtered = searchQuery.trim() ? searchResults : persons
 
   return (
     <div className="space-y-6">
@@ -418,15 +445,34 @@ export default function DocumentsPage() {
         </div>
 
         {!currentFolder && (
-          <div className="flex w-full max-w-md gap-2">
+          <div className="flex w-full max-w-lg gap-2">
+            <div className="relative shrink-0">
+              <select
+                title="Tìm kiếm theo"
+                className="h-10 appearance-none rounded-md border border-zinc-200 bg-zinc-50 pl-3 pr-8 text-sm font-medium text-zinc-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 cursor-pointer hover:bg-zinc-100 transition-colors"
+                value={searchType}
+                onChange={(e) => setSearchType(e.target.value as 'name' | 'cccd' | 'mnv')}
+              >
+                <option value="name">Theo Tên</option>
+                <option value="cccd">Theo CCCD</option>
+                <option value="mnv">Theo MNV</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-500">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+              </div>
+            </div>
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              <input value={searchName} onChange={e => setSearchName(e.target.value)}
-                placeholder="Tìm theo tên nhân viên…"
+              {isSearching ? (
+                <Spinner className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              ) : (
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+              )}
+              <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                placeholder={`Tìm kiếm thư mục...`}
                 className="h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 placeholder:text-zinc-400"
               />
-              {searchName && (
-                <button onClick={() => setSearchName('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
                   <X className="h-3.5 w-3.5" />
                 </button>
               )}
@@ -671,8 +717,8 @@ export default function DocumentsPage() {
                 ))}
                 {filtered.length === 0 && (
                   <tr><td colSpan={4} className="px-6 py-12 text-center text-zinc-400 text-sm">
-                    {searchName
-                      ? <>Không tìm thấy nhân viên nào khớp với "<strong className="text-zinc-600">{searchName}</strong>".</>
+                    {searchQuery
+                      ? <>Không tìm thấy nhân viên nào khớp với "<strong className="text-zinc-600">{searchQuery}</strong>".</>
                       : (tab === 'main' ? 'Chưa có hồ sơ nào lưu trữ.' : 'Không có hồ sơ nào đang chờ duyệt.')}
                   </td></tr>
                 )}

@@ -1,18 +1,19 @@
 import { useState } from 'react'
-import { Users, FolderTree } from 'lucide-react'
+import { Users, FolderTree, Bell } from 'lucide-react'
 import DocumentsPage from '@/pages/DocumentsPage'
 import ProjectsPage from '@/pages/ProjectsPage'
 import EmployeesPage from '@/pages/EmployeesPage'
 import TerminatedPersonsPage from '@/pages/TerminatedPersonsPage'
+import NotificationsPage from '@/pages/NotificationsPage'
 
-type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons'
+type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons' | 'notifications'
 
 const TABS: { id: Tab; label: string; Icon: typeof Users }[] = [
   { id: 'documents', label: 'Hồ sơ nhân sự', Icon: FolderTree },
   // { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
   { id: 'terminated_persons', label: 'DS Nghỉ việc', Icon: FolderTree },
   { id: 'projects', label: 'Quản lý dự án', Icon: Users },
-
+  { id: 'notifications', label: 'Thông báo', Icon: Bell },
 ]
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
         {active === 'employees' && <EmployeesPage />}
         {active === 'projects' && <ProjectsPage />}
         {active === 'terminated_persons' && <TerminatedPersonsPage />}
+        {active === 'notifications' && <NotificationsPage />}
       </main>
     </div>
   )
