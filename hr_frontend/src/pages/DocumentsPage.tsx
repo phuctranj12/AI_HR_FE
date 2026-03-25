@@ -213,8 +213,8 @@ export default function DocumentsPage() {
     if (!ok) return
     setCommitting(true)
     try {
-      const toDelete = isAll ? filtered.map(p => p.name) : targets
-      await deletePersonsBatch(toDelete)                          // bước 1: soft delete → terminated
+      const toDelete = isAll ? filtered.map(p => p.name) : targets  // Đang là tạm thời để phục vụ phòng HCNS nên gộp hai bước xoá lại (giờ xoá một lầm là xoá vĩnh viễn trong db)
+      await deletePersonsBatch(toDelete)                          // bước 1: soft delete chuyển trạng thái nhân sự sang terminated
       await Promise.all(toDelete.map(p => deletePersonData(p)))  // bước 2: xóa vĩnh viễn
       refresh()
       toast.success('Đã xóa vĩnh viễn thành công.')
@@ -564,7 +564,7 @@ export default function DocumentsPage() {
                     Tên thư mục (Nhân viên)
                   </th>
                   <th className="px-6 py-3 font-medium">Số file</th>
-                  <th className="px-6 py-3 font-medium">Tình trạng hồ sơ</th>
+                  {/* <th className="px-6 py-3 font-medium">Tình trạng hồ sơ</th> */}
                   <th className="px-6 py-3 font-medium text-right">Thao tác</th>
                 </tr>
               </thead>
@@ -628,7 +628,7 @@ export default function DocumentsPage() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-zinc-500 text-sm">{p.files.length} file</td>
-                    <td className="px-6 py-4">
+                    {/* <td className="px-6 py-4">
                       {(() => {
                         const { status, issues } = getFolderStatus(p)
                         if (status === 'good') return (
@@ -646,7 +646,7 @@ export default function DocumentsPage() {
                           </div>
                         )
                       })()}
-                    </td>
+                    </td> */}
                     <td className="px-6 py-4">
                       <div className="flex justify-end gap-2">
                         {tab === 'staging' && (
