@@ -623,7 +623,7 @@ export default function DocumentsPage() {
                           <span className="font-medium text-zinc-900 cursor-pointer hover:underline" onClick={() => setCurrentFolder(p)}>
                             {p.display_name ?? p.name}
                           </span>
-                          {p.display_name && <span className="text-xs text-zinc-400">({p.name})</span>}
+                          {/* {p.display_name && <span className="text-xs text-zinc-400">({p.name})</span>} */}
                         </div>
                       )}
                     </td>
