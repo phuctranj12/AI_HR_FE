@@ -6,7 +6,7 @@ import {
 import {
   filePreviewUrl, deleteFile, renameFile, deletePerson, commitPerson, commitAll, commitFiles,
   personPreviewUrl, deletePersonDataFile, deletePersonData, renamePersonDataFile,
-  renamePersonData, renamePerson, downloadPersonsBatch, deletePersonsBatch
+  renamePersonData, renamePerson, downloadPersonsBatch, deletePersonsBatch, clearOutput
 } from '@/api/client'
 import { useOutputData } from '@/hooks/useOutputData'
 import { usePersonData } from '@/hooks/usePersonData'
@@ -19,6 +19,7 @@ import { toast } from 'react-hot-toast'
 import { useConfirm } from '@/hooks/useConfirm'
 
 import type { PersonFolder } from '@/types'
+
 
 const DOC_LABELS: Record<string, string> = {
   CCCD: 'CCCD',
@@ -178,10 +179,63 @@ export default function DocumentsPage() {
   const [renaming, setRenaming] = useState<{ person: string; filename: string; type: 'main' | 'staging' } | null>(null)
   const [committing, setCommitting] = useState(false)
 
+  // ── TẠM THỜI: xóa vĩnh viễn ngay lần 1 (bỏ khi hoàn thiện flow) ──────────
+  const handlePermDeleteFolder = async (person: string) => {
+    const ok = await confirm('CẢNH BÁO: Xóa VĨNH VIỄN hồ sơ, nhân sự, và truy vết dự án của nhân viên này?', { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
+    try {
+      await deletePersonsBatch([person])   // bước 1: soft delete → chuyển sang terminated
+      await deletePersonData(person)       // bước 2: xóa vĩnh viễn khỏi terminated
+      refresh()
+      if (currentFolder?.name === person) setCurrentFolder(null)
+      toast.success('Đã xóa hồ sơ thành công.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
+    }
+  }
+  const handlePermDeleteFile = async (person: string, filename: string) => {
+    const ok = await confirm(`Xóa VĨNH VIỄN file "${filename}"? Hành động này không thể hoàn tác.`, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
+    try {
+      await deletePersonDataFile(person, filename)
+      refresh()
+      toast.success('Đã xóa thành công.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
+    }
+  }
+  const handlePermBatchDelete = async (targets: string[]) => {
+    const isAll = targets.length === 0
+    const msg = isAll
+      ? 'CẢNH BÁO: Xóa VĨNH VIỄN TẤT CẢ hồ sơ nhân sự hiện tại? (Không thể hoàn tác)'
+      : `CẢNH BÁO: Xóa VĨNH VIỄN ${targets.length} hồ sơ đã chọn? (Không thể hoàn tác)`
+    const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
+    setCommitting(true)
+    try {
+      const toDelete = isAll ? filtered.map(p => p.name) : targets
+      await deletePersonsBatch(toDelete)                          // bước 1: soft delete → terminated
+      await Promise.all(toDelete.map(p => deletePersonData(p)))  // bước 2: xóa vĩnh viễn
+      refresh()
+      toast.success('Đã xóa vĩnh viễn thành công.')
+      setSelectedMainFolders([])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+    }
+  }
+  // ── Hết phần tạm thời ────────────────────────────────────────────────────────
+
+
+
+
   // Selection state for staging tab
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   // Selection state for main tab folders
   const [selectedMainFolders, setSelectedMainFolders] = useState<string[]>([])
+  // Selection state for staging folders
+  const [selectedStagingFolders, setSelectedStagingFolders] = useState<string[]>([])
 
   const liveFolder = currentFolder ? (persons.find(p => p.name === currentFolder.name) ?? null) : null
 
@@ -258,7 +312,7 @@ export default function DocumentsPage() {
 
   const handleBatchDelete = async (targets: string[]) => {
     const isAll = targets.length === 0
-    const msg = isAll 
+    const msg = isAll
       ? 'Bạn có CHẮC CHẮN muốn XÓA TẤT CẢ hồ sơ nhân sự hiện tại không?'
       : `Bạn có chắc muốn xóa ${targets.length} hồ sơ đã chọn?`
     const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa' })
@@ -273,6 +327,46 @@ export default function DocumentsPage() {
     } finally {
       setCommitting(false)
       setSelectedMainFolders([])
+    }
+  }
+
+  const handleBatchDeleteStaging = async (targets: string[]) => {
+    const isAll = targets.length === 0
+    const msg = isAll
+      ? 'Bạn có CHẮC CHẮN muốn XÓA TẤT CẢ hồ sơ đang chờ duyệt không?'
+      : `Bạn có chắc muốn xóa ${targets.length} hồ sơ chờ duyệt đã chọn?`
+    const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa' })
+    if (!ok) return
+    setCommitting(true)
+    try {
+      if (isAll) {
+        await clearOutput()
+      } else {
+        await Promise.all(targets.map(p => deletePerson(p)))
+      }
+      refresh()
+      toast.success('Đã xóa hồ sơ chờ duyệt thành công.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+      setSelectedStagingFolders([])
+    }
+  }
+
+  const handleBatchCommitStaging = async (targets: string[]) => {
+    const ok = await confirm(`Bạn có chắc muốn duyệt ${targets.length} hồ sơ đã chọn?`)
+    if (!ok) return
+    setCommitting(true)
+    try {
+      await Promise.all(targets.map(p => commitPerson(p)))
+      refresh()
+      toast.success(`Đã duyệt ${targets.length} hồ sơ thành công.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Duyệt hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+      setSelectedStagingFolders([])
     }
   }
 
@@ -334,24 +428,6 @@ export default function DocumentsPage() {
                 </button>
               )}
             </div>
-            {tab === 'staging' && stagingPersons.length > 0 && (
-              <Button disabled={committing} onClick={async () => {
-                const ok = await confirm("Hệ thống sẽ duyệt và lưu TẤT CẢ thư mục đang chờ?")
-                if (!ok) return
-                setCommitting(true)
-                try {
-                  await commitAll()
-                  refresh()
-                  toast.success("Đã lưu hoàn tất tất cả hồ sơ.")
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Lỗi duyệt hồ sơ")
-                } finally {
-                  setCommitting(false)
-                }
-              }} className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
-                {committing ? "Đang lưu..." : "Duyệt Tất Cả"}
-              </Button>
-            )}
           </div>
         )}
       </div>
@@ -369,33 +445,87 @@ export default function DocumentsPage() {
         </div>
 
         {tab === 'main' && !currentFolder && (
-          <div className="px-6 py-2 border-b flex gap-2 items-center bg-zinc-50/50">
-             {selectedMainFolders.length > 0 ? (
-                <>
-                  <span className="text-sm font-medium text-emerald-700 mr-2 flex items-center gap-1.5 bg-emerald-100 px-2 py-1 rounded-md shadow-sm">
-                    <CheckCircle2 className="w-4 h-4" /> Đã chọn {selectedMainFolders.length} hồ sơ
-                  </span>
-                  <Button size="sm" variant="outline" disabled={committing} onClick={() => handleBatchDownload(selectedMainFolders)}>
-                    {committing ? <Spinner className="w-4 h-4 mr-1"/> : <Download className="h-4 w-4 mr-1"/>} Tải {selectedMainFolders.length} mục
-                  </Button>
-                  <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
-                    <Trash2 className="h-4 w-4 mr-1"/> Xóa {selectedMainFolders.length} mục
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
-                    Bỏ chọn
-                  </Button>
-                </>
-             ) : (
-                <>
-                  <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
-                  <Button size="sm" variant="outline" disabled={committing || filtered.length === 0} onClick={() => handleBatchDownload([])}>
-                    {committing ? <Spinner className="w-4 h-4 mr-1"/> : <Download className="h-4 w-4 mr-1"/>} Tải Tất Cả
-                  </Button>
-                  <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
-                    <Trash2 className="h-4 w-4 mr-1"/> Xóa Tất Cả
-                  </Button>
-                </>
-             )}
+          <div className="px-6 py-2 border-b flex gap-2 items-center bg-zinc-50/50 flex-wrap">
+            {selectedMainFolders.length > 0 ? (
+              <>
+                <span className="text-sm font-medium text-emerald-700 mr-2 flex items-center gap-1.5 bg-emerald-100 px-2 py-1 rounded-md shadow-sm">
+                  <CheckCircle2 className="w-4 h-4" /> Đã chọn {selectedMainFolders.length} hồ sơ
+                </span>
+                <Button size="sm" variant="outline" disabled={committing} onClick={() => handleBatchDownload(selectedMainFolders)}>
+                  {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải {selectedMainFolders.length} mục
+                </Button>
+                {/* Tạm thời  */}
+                {/* <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa {selectedMainFolders.length} mục
+                </Button> */}
+                <Button size="sm" variant="destructive" disabled={committing} onClick={() => handlePermBatchDelete(selectedMainFolders)}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa ({selectedMainFolders.length})
+                </Button>
+                {/* Tạm thời  */}
+                <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
+                  Bỏ chọn
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
+                <Button size="sm" variant="outline" disabled={committing || filtered.length === 0} onClick={() => handleBatchDownload([])}>
+                  {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải Tất Cả
+                </Button>
+                {/* Tạm thời  */}
+                {/* <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
+                </Button> */}
+                <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handlePermBatchDelete([])}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
+                </Button>
+                {/* Tạm thời  */}
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === 'staging' && !currentFolder && (
+          <div className="px-6 py-2 border-b flex gap-2 items-center bg-zinc-50/50 flex-wrap">
+            {selectedStagingFolders.length > 0 ? (
+              <>
+                <span className="text-sm font-medium text-indigo-700 mr-2 flex items-center gap-1.5 bg-indigo-100 px-2 py-1 rounded-md shadow-sm">
+                  <CheckCircle2 className="w-4 h-4" /> Đã chọn {selectedStagingFolders.length} hồ sơ
+                </span>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={committing} onClick={() => handleBatchCommitStaging(selectedStagingFolders)}>
+                  {committing ? <Spinner className="w-4 h-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Duyệt {selectedStagingFolders.length} mục
+                </Button>
+                <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDeleteStaging(selectedStagingFolders)}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa {selectedStagingFolders.length} mục
+                </Button>
+                <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedStagingFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
+                  Bỏ chọn
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
+                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={committing || filtered.length === 0} onClick={async () => {
+                  const ok = await confirm("Hệ thống sẽ duyệt và lưu TẤT CẢ thư mục đang chờ?")
+                  if (!ok) return
+                  setCommitting(true)
+                  try {
+                    await commitAll()
+                    refresh()
+                    toast.success("Đã lưu hoàn tất tất cả hồ sơ.")
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Lỗi duyệt hồ sơ")
+                  } finally {
+                    setCommitting(false)
+                  }
+                }}>
+                  {committing ? <Spinner className="w-4 h-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Duyệt Tất Cả
+                </Button>
+                <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDeleteStaging([])}>
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
+                </Button>
+              </>
+            )}
           </div>
         )}
 
@@ -409,20 +539,28 @@ export default function DocumentsPage() {
               <thead className="text-xs text-zinc-500 uppercase tracking-wide bg-zinc-50 border-b">
                 <tr>
                   <th className="px-6 py-3 font-medium flex items-center gap-3">
-                    {tab === 'main' && (
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
-                        checked={filtered.length > 0 && selectedMainFolders.length === filtered.length}
-                        onChange={() => {
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
+                      checked={tab === 'main'
+                        ? (filtered.length > 0 && selectedMainFolders.length === filtered.length)
+                        : (filtered.length > 0 && selectedStagingFolders.length === filtered.length)}
+                      onChange={() => {
+                        if (tab === 'main') {
                           if (selectedMainFolders.length === filtered.length) {
                             setSelectedMainFolders([])
                           } else {
                             setSelectedMainFolders(filtered.map(f => f.name))
                           }
-                        }}
-                      />
-                    )}
+                        } else {
+                          if (selectedStagingFolders.length === filtered.length) {
+                            setSelectedStagingFolders([])
+                          } else {
+                            setSelectedStagingFolders(filtered.map(f => f.name))
+                          }
+                        }
+                      }}
+                    />
                     Tên thư mục (Nhân viên)
                   </th>
                   <th className="px-6 py-3 font-medium">Số file</th>
@@ -462,20 +600,26 @@ export default function DocumentsPage() {
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
-                          {tab === 'main' && (
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
-                              checked={selectedMainFolders.includes(p.name)}
-                              onChange={() => {
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 h-4 w-4 cursor-pointer"
+                            checked={tab === 'main' ? selectedMainFolders.includes(p.name) : selectedStagingFolders.includes(p.name)}
+                            onChange={() => {
+                              if (tab === 'main') {
                                 if (selectedMainFolders.includes(p.name)) {
                                   setSelectedMainFolders(selectedMainFolders.filter(n => n !== p.name))
                                 } else {
                                   setSelectedMainFolders([...selectedMainFolders, p.name])
                                 }
-                              }}
-                            />
-                          )}
+                              } else {
+                                if (selectedStagingFolders.includes(p.name)) {
+                                  setSelectedStagingFolders(selectedStagingFolders.filter(n => n !== p.name))
+                                } else {
+                                  setSelectedStagingFolders([...selectedStagingFolders, p.name])
+                                }
+                              }
+                            }}
+                          />
                           <span className="font-medium text-zinc-900 cursor-pointer hover:underline" onClick={() => setCurrentFolder(p)}>
                             {p.display_name ?? p.name}
                           </span>
@@ -517,7 +661,7 @@ export default function DocumentsPage() {
                           }}>Lưu hồ sơ</Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => { setEditingId(p.name); setEditingName(p.name); }}>Sửa tên</Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>Xóa</Button>
+                        {/* <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>Xóa</Button> */}
                       </div>
                     </td>
                   </tr>

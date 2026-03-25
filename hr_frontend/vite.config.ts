@@ -9,14 +9,16 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    host: true, 
+    host: true,
     proxy: {
       '/api/v1': {
-        target: 'http://172.16.24.159:8000', 
+        // target: 'http://172.16.24.159:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/api': {
-        target: 'http://172.16.24.159:8000', 
+        // target: 'http://172.16.24.159:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

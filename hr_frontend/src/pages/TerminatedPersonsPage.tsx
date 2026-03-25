@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileText, Eye, ChevronRight, ArrowLeft, Search, X, Pencil, Trash2, Download } from 'lucide-react'
 import { usePersonData } from '@/hooks/usePersonData'
 import { Button, Badge, Modal, Spinner } from '@/components/ui'
-import { deletePersonData, deletePersonDataFile, renamePersonDataFile, personPreviewUrl, downloadPersonDataUrl } from '@/api/client'
+import { deletePersonData, deletePersonDataFile, renamePersonDataFile, personPreviewUrl, downloadPersonDataUrl, deletePersonsBatch } from '@/api/client'
 import { toast } from 'react-hot-toast'
 import { useConfirm } from '@/hooks/useConfirm'
 import type { PersonFolder } from '@/types'
@@ -130,7 +130,10 @@ export default function TerminatedPersonsPage() {
 
   const [searchName, setSearchName] = useState('')
   const [currentFolder, setCurrentFolder] = useState<PersonFolder | null>(null)
-  
+
+  const [selectedPersons, setSelectedPersons] = useState<string[]>([])
+  const [committing, setCommitting] = useState(false)
+
   const [preview, setPreview] = useState<{ person: string; filename: string } | null>(null)
   const [renaming, setRenaming] = useState<{ person: string; filename: string } | null>(null)
 
@@ -163,6 +166,27 @@ export default function TerminatedPersonsPage() {
 
   const filtered = persons.filter(p => p.name.toLowerCase().includes(searchName.toLowerCase()))
 
+  const handleBatchDelete = async (targets: string[]) => {
+    const isAll = targets.length === filtered.length
+    const msg = isAll
+      ? 'Bạn có CHẮC CHẮN muốn XÓA VĨNH VIỄN TẤT CẢ hồ sơ đã nghỉ việc hiện tại không? (Hành động này không thể hoàn tác)'
+      : `Bạn có chắc muốn xóa vĩnh viễn ${targets.length} hồ sơ đã chọn?`
+
+    const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
+    if (!ok) return
+    setCommitting(true)
+    try {
+      await deletePersonsBatch(targets)
+      refresh()
+      toast.success('Đã xóa hồ sơ thành công.')
+      setSelectedPersons([])
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
+    } finally {
+      setCommitting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -176,18 +200,33 @@ export default function TerminatedPersonsPage() {
       {/* Tabs & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         {!currentFolder && (
-          <div className="flex w-full max-w-md gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
-              <input value={searchName} onChange={e => setSearchName(e.target.value)}
-                placeholder="Tìm hồ sơ đã nghỉ việc…"
-                className="h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-red-900 placeholder:text-zinc-400"
-              />
-              {searchName && (
-                <button onClick={() => setSearchName('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
-                  <X className="h-3.5 w-3.5" />
-                </button>
+          <div className="flex flex-col sm:flex-row justify-between w-full gap-4">
+            <div className="flex flex-wrap gap-2 items-center">
+              {selectedPersons.length > 0 && (
+                <Button variant="destructive" onClick={() => handleBatchDelete(selectedPersons)} disabled={committing}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Xóa đã chọn ({selectedPersons.length})
+                </Button>
               )}
+              {filtered.length > 0 && (
+                <Button variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 border-red-200 bg-white" onClick={() => handleBatchDelete(filtered.map(p => p.name))} disabled={committing}>
+                  Xóa tất cả
+                </Button>
+              )}
+            </div>
+
+            <div className="flex w-full sm:max-w-md gap-2 shrink-0">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+                <input value={searchName} onChange={e => setSearchName(e.target.value)}
+                  placeholder="Tìm hồ sơ đã nghỉ việc…"
+                  className="h-10 w-full rounded-md border border-zinc-200 bg-white pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-red-900 placeholder:text-zinc-400"
+                />
+                {searchName && (
+                  <button onClick={() => setSearchName('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -212,6 +251,18 @@ export default function TerminatedPersonsPage() {
           <table className="w-full text-sm text-left">
             <thead className="text-xs text-zinc-500 uppercase tracking-wide bg-zinc-50 border-b">
               <tr>
+                <th className="w-12 px-6 py-3 text-center">
+                  <input type="checkbox" className="accent-red-600 rounded"
+                    checked={filtered.length > 0 && selectedPersons.length === filtered.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedPersons(filtered.map(p => p.name))
+                      } else {
+                        setSelectedPersons([])
+                      }
+                    }}
+                  />
+                </th>
                 <th className="px-6 py-3 font-medium">Tên thư mục (Nhân viên)</th>
                 <th className="px-6 py-3 font-medium">Số file</th>
                 <th className="px-6 py-3 font-medium text-right">Thao tác</th>
@@ -220,6 +271,19 @@ export default function TerminatedPersonsPage() {
             <tbody>
               {filtered.map(p => (
                 <tr key={p.name} className="border-b last:border-0 hover:bg-zinc-50 transition-colors">
+                  <td className="px-6 py-4 text-center">
+                    <input type="checkbox" className="accent-red-600 rounded cursor-pointer"
+                      onClick={e => e.stopPropagation()}
+                      checked={selectedPersons.includes(p.name)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedPersons(prev => [...prev, p.name])
+                        } else {
+                          setSelectedPersons(prev => prev.filter(name => name !== p.name))
+                        }
+                      }}
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <span className="font-medium text-zinc-900 cursor-pointer hover:underline" onClick={() => setCurrentFolder(p)}>
@@ -236,15 +300,15 @@ export default function TerminatedPersonsPage() {
                           <Download className="h-3.5 w-3.5 mr-1" /> Tải ZIP
                         </Button>
                       </a>
-                      <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>
+                      {/* <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>
                         Xóa Vĩnh Viễn
-                      </Button>
+                      </Button> */}
                     </div>
                   </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={3} className="px-6 py-12 text-center text-zinc-400 text-sm">
+                <tr><td colSpan={4} className="px-6 py-12 text-center text-zinc-400 text-sm">
                   {searchName
                     ? <>Không tìm thấy nhân viên nào khớp với "<strong className="text-zinc-600">{searchName}</strong>".</>
                     : 'Không có nhân sự nghỉ việc nào.'}
