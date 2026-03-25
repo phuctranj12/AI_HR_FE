@@ -458,16 +458,16 @@ export default function DocumentsPage() {
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải {selectedMainFolders.length} mục
                 </Button>
                 {/* Tạm thời  */}
-                {/* <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
+                {/* <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa {selectedMainFolders.length} mục
                 </Button> */}
-                <Button size="sm" variant="destructive" disabled={committing} onClick={() => handlePermBatchDelete(selectedMainFolders)}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handlePermBatchDelete(selectedMainFolders)}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa ({selectedMainFolders.length})
                 </Button>
                 {/* Tạm thời  */}
-                <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
+                {/* <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
                   Bỏ chọn
-                </Button>
+                </Button> */}
               </>
             ) : (
               <>
@@ -476,10 +476,10 @@ export default function DocumentsPage() {
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải Tất Cả
                 </Button>
                 {/* Tạm thời  */}
-                {/* <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
+                {/* <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
                 </Button> */}
-                <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handlePermBatchDelete([])}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handlePermBatchDelete([])}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
                 </Button>
                 {/* Tạm thời  */}
@@ -498,12 +498,12 @@ export default function DocumentsPage() {
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={committing} onClick={() => handleBatchCommitStaging(selectedStagingFolders)}>
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Duyệt {selectedStagingFolders.length} mục
                 </Button>
-                <Button size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDeleteStaging(selectedStagingFolders)}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDeleteStaging(selectedStagingFolders)}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa {selectedStagingFolders.length} mục
                 </Button>
-                <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedStagingFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
+                {/* <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedStagingFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
                   Bỏ chọn
-                </Button>
+                </Button> */}
               </>
             ) : (
               <>
@@ -524,7 +524,7 @@ export default function DocumentsPage() {
                 }}>
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <CheckCircle2 className="h-4 w-4 mr-1" />} Duyệt Tất Cả
                 </Button>
-                <Button size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDeleteStaging([])}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDeleteStaging([])}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
                 </Button>
               </>
