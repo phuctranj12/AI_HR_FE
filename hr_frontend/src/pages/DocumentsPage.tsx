@@ -19,6 +19,7 @@ import { toast } from 'react-hot-toast'
 import { useConfirm } from '@/hooks/useConfirm'
 
 import type { PersonFolder } from '@/types'
+import { DocType } from '../types/index';
 
 
 const DOC_LABELS: Record<string, string> = {
@@ -30,11 +31,12 @@ const DOC_LABELS: Record<string, string> = {
   Khac: 'Khác',
 }
 
+
 function docTypeLabel(filename: string): string {
   const base = filename.split('.')[0].replace(/_\d+$/, '')
-  return DOC_LABELS[base] ?? base
+  const docType = base.split('_').pop() ?? base
+  return DOC_LABELS[docType] ?? docType
 }
-
 function isImage(filename: string): boolean {
   return /\.(png|jpe?g)$/i.test(filename)
 }
@@ -238,6 +240,7 @@ export default function DocumentsPage() {
   const [selectedStagingFolders, setSelectedStagingFolders] = useState<string[]>([])
 
   const liveFolder = currentFolder ? (persons.find(p => p.name === currentFolder.name) ?? null) : null
+
 
   const handleSelectAll = () => {
     if (!liveFolder) return
@@ -468,7 +471,7 @@ export default function DocumentsPage() {
               </>
             ) : (
               <>
-                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
+                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ</span>
                 <Button size="sm" variant="outline" disabled={committing || filtered.length === 0} onClick={() => handleBatchDownload([])}>
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải Tất Cả
                 </Button>
@@ -504,7 +507,7 @@ export default function DocumentsPage() {
               </>
             ) : (
               <>
-                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ:</span>
+                <span className="text-sm border border-zinc-200 text-zinc-600 mr-2 bg-white px-2 py-1 rounded-md shadow-sm">Thao tác toàn bộ</span>
                 <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" disabled={committing || filtered.length === 0} onClick={async () => {
                   const ok = await confirm("Hệ thống sẽ duyệt và lưu TẤT CẢ thư mục đang chờ?")
                   if (!ok) return
@@ -623,7 +626,7 @@ export default function DocumentsPage() {
                           <span className="font-medium text-zinc-900 cursor-pointer hover:underline" onClick={() => setCurrentFolder(p)}>
                             {p.display_name ?? p.name}
                           </span>
-                          {p.display_name && <span className="text-xs text-zinc-400">({p.name})</span>}
+                          {/* {p.display_name && <span className="text-xs text-zinc-400">({p.name})</span>} */}
                         </div>
                       )}
                     </td>
