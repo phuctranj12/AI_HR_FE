@@ -5,6 +5,7 @@ import type {
   OutputListResponse,
   ProcessDocumentsResponse,
   UploadResponse,
+  FileProcessResult
 } from '@/types'
 
 const BASE = '/api/v1'
@@ -36,6 +37,17 @@ export async function uploadFiles(files: File[]): Promise<UploadResponse> {
 
 export async function processDocuments(): Promise<ProcessDocumentsResponse> {
   return request<ProcessDocumentsResponse>('/documents/process', { method: 'POST', timeout: 600000 })
+}
+
+export async function uploadAndProcess(file: File, signal?: AbortSignal): Promise<FileProcessResult> {
+  const form = new FormData()
+  form.append('file', file)
+  return request<FileProcessResult>('/documents/upload-and-process', {
+    method: 'POST',
+    body: form,
+    signal,
+    timeout: 300000 // 5 minutes max per file
+  })
 }
 
 export async function listOutput(): Promise<OutputListResponse> {
@@ -76,11 +88,32 @@ export async function commitPerson(person: string): Promise<CommitPersonResponse
   })
 }
 
-export async function commitFiles(person: string, files: string[], targetPerson?: string): Promise<any> {
-  return request(`/documents/output/${encodeURIComponent(person)}/commit_files`, {
+export async function commitFiles(person: string, target_person: string, files: string[]): Promise<any> {
+  return request(`/documents/output/${person}/commit_files`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ files, target_person: targetPerson })
+    body: JSON.stringify({ files, target_person })
+  })
+}
+
+export async function commitBatch(persons: string[]): Promise<any> {
+  return request('/documents/output/batch-commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persons }),
+    timeout: 300000
+  })
+}
+
+export async function deleteOutputPerson(person: string): Promise<void> {
+  return request(`/documents/output/${person}`, { method: 'DELETE' })
+}
+
+export async function deleteOutputBatch(persons: string[]): Promise<any> {
+  return request('/documents/output/batch', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persons })
   })
 }
 
@@ -242,8 +275,14 @@ export async function deletePersonDataFile(person: string, filename: string): Pr
 }
 
 export async function deletePersonData(person: string): Promise<void> {
-  await request(`/persons/${encodeURIComponent(person)}`, {
+  return request(`/persons/${person}`, { method: 'DELETE', timeout: 60000 })
+}
+
+export async function deletePersonDataBatch(persons: string[]): Promise<any> {
+  return request(`/persons/batch`, {
     method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ persons })
   })
 }
 
@@ -300,15 +339,15 @@ export async function downloadPersonsBatch(persons: string[]): Promise<void> {
   window.URL.revokeObjectURL(url)
 }
 
+// ── Notifications ────────────────────────────────────────────────────────────
+
 export async function deletePersonsBatch(persons: string[]): Promise<void> {
-  await request(`/persons/delete-batch`, {
-    method: 'POST',
+  await request(`/persons/batch`, {
+    method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ persons }),
   })
 }
-
-// ── Notifications ────────────────────────────────────────────────────────────
 
 export interface MissingDocument {
   employee_id: number

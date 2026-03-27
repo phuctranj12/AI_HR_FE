@@ -13,7 +13,7 @@ import { useOutputData } from '@/hooks/useOutputData'
 import { usePersonData } from '@/hooks/usePersonData'
 import { getFolderStatus } from '@/utils/folderStatus'
 import { Button, Badge, Modal, Spinner } from '@/components/ui'
-import UploadDialog from '@/components/UploadDialog'
+// UploadDialog is now globally mounted in App.tsx
 import FaceMatchDialog from '@/components/FaceMatchDialog'
 import MoveToModal from '@/components/MoveToModal'
 import { toast } from 'react-hot-toast'
@@ -170,6 +170,16 @@ export default function DocumentsPage() {
 
   const refresh = () => { refreshMain(); refreshStaging(); }
 
+  useEffect(() => {
+    const handler = () => {
+      refresh()
+      setCurrentFolder(null)
+      setTab('staging')
+    }
+    window.addEventListener('refresh-documents', handler)
+    return () => window.removeEventListener('refresh-documents', handler)
+  }, [refreshMain, refreshStaging])
+
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState("")
   const [currentFolder, setCurrentFolder] = useState<PersonFolder | null>(null)
@@ -178,7 +188,7 @@ export default function DocumentsPage() {
   const [searchResults, setSearchResults] = useState<PersonFolder[]>([])
   const [isSearching, setIsSearching] = useState(false)
   
-  const [uploadOpen, setUploadOpen] = useState(false)
+  // uploadOpen state is managed globally now
   const [faceOpen, setFaceOpen] = useState(false)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
 
@@ -186,53 +196,7 @@ export default function DocumentsPage() {
   const [renaming, setRenaming] = useState<{ person: string; filename: string; type: 'main' | 'staging' } | null>(null)
   const [committing, setCommitting] = useState(false)
 
-  // ── TẠM THỜI: xóa vĩnh viễn ngay lần 1 (bỏ khi hoàn thiện flow) ──────────
-  const handlePermDeleteFolder = async (person: string) => {
-    const ok = await confirm('CẢNH BÁO: Xóa VĨNH VIỄN hồ sơ, nhân sự, và truy vết dự án của nhân viên này?', { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
-    if (!ok) return
-    try {
-      await deletePersonsBatch([person])   // bước 1: soft delete → chuyển sang terminated
-      await deletePersonData(person)       // bước 2: xóa vĩnh viễn khỏi terminated
-      refresh()
-      if (currentFolder?.name === person) setCurrentFolder(null)
-      toast.success('Đã xóa hồ sơ thành công.')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
-    }
-  }
-  const handlePermDeleteFile = async (person: string, filename: string) => {
-    const ok = await confirm(`Xóa VĨNH VIỄN file "${filename}"? Hành động này không thể hoàn tác.`, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
-    if (!ok) return
-    try {
-      await deletePersonDataFile(person, filename)
-      refresh()
-      toast.success('Đã xóa thành công.')
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Xóa thất bại.')
-    }
-  }
-  const handlePermBatchDelete = async (targets: string[]) => {
-    const isAll = targets.length === 0
-    const msg = isAll
-      ? 'CẢNH BÁO: Xóa VĨNH VIỄN TẤT CẢ hồ sơ nhân sự hiện tại? (Không thể hoàn tác)'
-      : `CẢNH BÁO: Xóa VĨNH VIỄN ${targets.length} hồ sơ đã chọn? (Không thể hoàn tác)`
-    const ok = await confirm(msg, { variant: 'destructive', confirmText: 'Xóa Vĩnh Viễn' })
-    if (!ok) return
-    setCommitting(true)
-    try {
-      const toDelete = isAll ? filtered.map(p => p.name) : targets  // Đang là tạm thời để phục vụ phòng HCNS nên gộp hai bước xoá lại (giờ xoá một lầm là xoá vĩnh viễn trong db)
-      await deletePersonsBatch(toDelete)                          // bước 1: soft delete chuyển trạng thái nhân sự sang terminated
-      await Promise.all(toDelete.map(p => deletePersonData(p)))  // bước 2: xóa vĩnh viễn
-      refresh()
-      toast.success('Đã xóa vĩnh viễn thành công.')
-      setSelectedMainFolders([])
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Xóa hàng loạt thất bại.')
-    } finally {
-      setCommitting(false)
-    }
-  }
-  // ── Hết phần tạm thời ────────────────────────────────────────────────────────
+  // ── (Soft Delete logic removed as requested by HCNS for immediate hard delete) ──
 
 
 
@@ -282,7 +246,7 @@ export default function DocumentsPage() {
     if (!currentFolder || selectedFiles.length === 0) return
     setCommitting(true)
     try {
-      await commitFiles(currentFolder.name, selectedFiles, targetPerson)
+      await commitFiles(currentFolder.name, targetPerson || currentFolder.name, selectedFiles)
       setSelectedFiles([])
       refresh()
       if (selectedFiles.length === liveFolder?.files.length) {
@@ -349,7 +313,8 @@ export default function DocumentsPage() {
     if (!ok) return
     setCommitting(true)
     try {
-      await deletePersonsBatch(targets)
+      const foldersToDelete = isAll ? filtered.map(f => f.name) : targets
+      await deletePersonsBatch(foldersToDelete)
       refresh()
       toast.success('Đã xóa thành công.')
     } catch (err) {
@@ -414,7 +379,7 @@ export default function DocumentsPage() {
           <Button variant="outline" onClick={() => setFaceOpen(true)}>
             <ScanFace className="mr-2 h-4 w-4" /> Nhận diện khuôn mặt
           </Button>
-          <Button onClick={() => setUploadOpen(true)}>
+          <Button onClick={() => window.dispatchEvent(new CustomEvent('open-upload'))}>
             <Upload className="mr-2 h-4 w-4" /> Tải lên hồ sơ
           </Button>
         </div>
@@ -503,14 +468,12 @@ export default function DocumentsPage() {
                 <Button size="sm" variant="outline" disabled={committing} onClick={() => handleBatchDownload(selectedMainFolders)}>
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải {selectedMainFolders.length} mục
                 </Button>
-                {/* Tạm thời  */}
                 {/* <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Xóa {selectedMainFolders.length} mục
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa mềm {selectedMainFolders.length} mục
                 </Button> */}
-                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handlePermBatchDelete(selectedMainFolders)}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing} onClick={() => handleBatchDelete(selectedMainFolders)}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa ({selectedMainFolders.length})
                 </Button>
-                {/* Tạm thời  */}
                 {/* <Button size="sm" variant="ghost" disabled={committing} onClick={() => setSelectedMainFolders([])} className="ml-auto text-zinc-400 hover:text-zinc-600">
                   Bỏ chọn
                 </Button> */}
@@ -521,14 +484,12 @@ export default function DocumentsPage() {
                 <Button size="sm" variant="outline" disabled={committing || filtered.length === 0} onClick={() => handleBatchDownload([])}>
                   {committing ? <Spinner className="w-4 h-4 mr-1" /> : <Download className="h-4 w-4 mr-1" />} Tải Tất Cả
                 </Button>
-                {/* Tạm thời  */}
                 {/* <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
-                  <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
+                  <Trash2 className="h-4 w-4 mr-1" /> Xóa mềm Tất Cả
                 </Button> */}
-                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handlePermBatchDelete([])}>
+                <Button style={{ marginLeft: "auto" }} size="sm" variant="destructive" disabled={committing || filtered.length === 0} onClick={() => handleBatchDelete([])}>
                   <Trash2 className="h-4 w-4 mr-1" /> Xóa Tất Cả
                 </Button>
-                {/* Tạm thời  */}
               </>
             )}
           </div>
@@ -710,7 +671,7 @@ export default function DocumentsPage() {
                           }}>Lưu hồ sơ</Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => { setEditingId(p.name); setEditingName(p.name); }}>Sửa tên</Button>
-                        {/* <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>Xóa</Button> */}
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteFolder(p.name)}>Xóa</Button>
                       </div>
                     </td>
                   </tr>
@@ -812,7 +773,6 @@ export default function DocumentsPage() {
         )}
       </div>
 
-      <UploadDialog open={uploadOpen} onClose={() => setUploadOpen(false)} onProcessed={() => { refresh(); setCurrentFolder(null); setTab('staging'); }} />
       <FaceMatchDialog open={faceOpen} onClose={() => setFaceOpen(false)} onMatched={() => { refresh(); setTab('staging'); }} />
       {moveModalOpen && <MoveToModal open onMove={(target) => handleCommitSelected(target)} existingPersons={mainPersons} selectedCount={selectedFiles.length} onClose={() => setMoveModalOpen(false)} />}
       {preview && <PreviewModal person={preview.person} filename={preview.filename} type={preview.type} onClose={() => setPreview(null)} />}

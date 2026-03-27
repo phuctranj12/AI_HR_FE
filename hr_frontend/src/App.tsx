@@ -5,6 +5,7 @@ import ProjectsPage from '@/pages/ProjectsPage'
 import EmployeesPage from '@/pages/EmployeesPage'
 import TerminatedPersonsPage from '@/pages/TerminatedPersonsPage'
 import NotificationsPage from '@/pages/NotificationsPage'
+import UploadDialog from '@/components/UploadDialog'
 
 type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons' | 'notifications'
 
@@ -54,6 +55,7 @@ export default function App() {
         {active === 'terminated_persons' && <TerminatedPersonsPage />}
         {active === 'notifications' && <NotificationsPage />}
       </main>
+      <UploadDialog />
     </div>
   )
 }

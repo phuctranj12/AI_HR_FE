@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { FileText, Eye, ChevronRight, ArrowLeft, Search, X, Pencil, Trash2, Download } from 'lucide-react'
 import { usePersonData } from '@/hooks/usePersonData'
 import { Button, Badge, Modal, Spinner } from '@/components/ui'
-import { deletePersonData, deletePersonDataFile, renamePersonDataFile, personPreviewUrl, downloadPersonDataUrl, deletePersonsBatch } from '@/api/client'
+import { deletePersonData, deletePersonDataFile, renamePersonDataFile, personPreviewUrl, downloadPersonDataUrl, deletePersonDataBatch } from '@/api/client'
 import { toast } from 'react-hot-toast'
 import { useConfirm } from '@/hooks/useConfirm'
 import type { PersonFolder } from '@/types'
@@ -176,7 +176,7 @@ export default function TerminatedPersonsPage() {
     if (!ok) return
     setCommitting(true)
     try {
-      await deletePersonsBatch(targets)
+      await deletePersonDataBatch(targets)
       refresh()
       toast.success('Đã xóa hồ sơ thành công.')
       setSelectedPersons([])
