@@ -31,6 +31,61 @@ export default function UploadDialog() {
     return () => window.removeEventListener('open-upload', handleOpen)
   }, [])
 
+  // Listen to refresh-documents event (triggered when commit from outside modal)
+  useEffect(() => {
+    const handleRefresh = () => {
+      // If there are done files and queue is not empty, clear done files
+      setQueue(prev => {
+        const doneItems = prev.filter(q => q.status === 'done')
+        if (doneItems.length > 0) {
+          // Keep only non-done items
+          return prev.filter(q => q.status !== 'done')
+        }
+        return prev
+      })
+    }
+    window.addEventListener('refresh-documents', handleRefresh)
+    return () => window.removeEventListener('refresh-documents', handleRefresh)
+  }, [])
+
+  // Listen to files-committed event (triggered when specific files are committed)
+  useEffect(() => {
+    const handleFilesCommitted = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { person, files } = customEvent.detail || {}
+      if (person && files && Array.isArray(files)) {
+        setQueue(prev =>
+          prev.filter(q => !(files.includes(q.file.name) && q.status === 'done'))
+        )
+      }
+    }
+    window.addEventListener('files-committed', handleFilesCommitted)
+    return () => window.removeEventListener('files-committed', handleFilesCommitted)
+  }, [])
+
+  // Listen to person-committed event (triggered when full person folder is committed)
+  useEffect(() => {
+    const handlePersonCommitted = (event: Event) => {
+      const customEvent = event as CustomEvent
+      const { person } = customEvent.detail || {}
+      if (person) {
+        // Remove all done files from this person from queue
+        setQueue(prev =>
+          prev.filter(q => {
+            // Check if file belongs to this person in queue result
+            if (q.status === 'done' && q.result?.person_name) {
+              // If person matches, remove it from queue
+              return q.result.person_name !== person
+            }
+            return true
+          })
+        )
+      }
+    }
+    window.addEventListener('person-committed', handlePersonCommitted)
+    return () => window.removeEventListener('person-committed', handlePersonCommitted)
+  }, [])
+
   const activeCount = queue.filter(q => q.status === 'uploading' || q.status === 'processing').length
   const pendingCount = queue.filter(q => q.status === 'pending').length
   const doneCount = queue.filter(q => q.status === 'done').length

@@ -36,7 +36,7 @@ export default function EmployeesPage() {
   })
 
   const [page, setPage] = useState(1)
-  const [size, setSize] = useState(50)
+  const [size, setSize] = useState(10)
   const [total, setTotal] = useState(0)
   const [debouncedQ, setDebouncedQ] = useState('')
 

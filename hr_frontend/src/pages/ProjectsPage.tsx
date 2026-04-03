@@ -19,6 +19,7 @@ import {
   updateProjectTree,
 } from '@/api/client'
 import ProjectTree from '@/components/ProjectTree'
+import AddProjectMemberModal from '@/components/AddProjectMemberModal'
 import { toast } from 'react-hot-toast'
 import { useConfirm } from '@/hooks/useConfirm'
 
@@ -88,8 +89,6 @@ export default function ProjectsPage() {
   // New state
   const [activeTab, setActiveTab] = useState<'list' | 'tree'>('list')
   const [allEmployees, setAllEmployees] = useState<any[]>([])
-  const [searchEmp, setSearchEmp] = useState('')
-  const [selectedEmpIds, setSelectedEmpIds] = useState<number[]>([])
   const [treeData, setTreeData] = useState<any>(null)
 
   const refreshProjects = async () => {
@@ -162,27 +161,19 @@ export default function ProjectsPage() {
     await refreshMembers(selected.id)
   }
 
-  const openAddMemberModal = async () => {
+  const openAddMemberModal = () => {
     setAddOpen(true)
-    try {
-      const res = await listEmployees()
-      setAllEmployees(res.employees)
-    } catch (e) {
-      console.error(e)
-    }
   }
 
-  const addMembersBatch = async () => {
-    if (!selected) return
-    if (selectedEmpIds.length === 0) return
+  const handleAddMembers = async (employeeIds: number[]) => {
+    if (!selected || employeeIds.length === 0) return
     try {
       const todayStr = new Date().toISOString().slice(0, 10)
       await addProjectMembersBatch(
         selected.id,
-        selectedEmpIds.map(id => ({ employee_id: id, start_date: todayStr }))
+        employeeIds.map(id => ({ employee_id: id, start_date: todayStr }))
       )
       setAddOpen(false)
-      setSelectedEmpIds([])
       await refreshMembers(selected.id)
       toast.success('Thêm thành viên thành công.')
     } catch (e) {
@@ -361,58 +352,12 @@ export default function ProjectsPage() {
         )}
 
         {/* Add member modal */}
-        <Modal open={addOpen} onClose={() => { setAddOpen(false); setSelectedEmpIds([]) }} title={`Thêm thành viên — ${liveProject.project_name}`} maxWidth="max-w-3xl">
-          <div className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-400" />
-              <input value={searchEmp} onChange={e => setSearchEmp(e.target.value)} placeholder="Tìm theo tên..." className="h-10 w-full rounded-md border border-zinc-200 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900" />
-            </div>
-
-            <div className="max-h-80 overflow-y-auto border rounded-md">
-              <table className="w-full text-sm">
-                <thead className="bg-zinc-50 border-b text-xs text-zinc-500 uppercase sticky top-0">
-                  <tr>
-                    <th className="w-12 px-4 py-2 text-center">
-                      <input type="checkbox"
-                        className="accent-zinc-900"
-                        checked={allEmployees.length > 0 && selectedEmpIds.length === allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).length}
-                        onChange={(ev) => {
-                          const filtered = allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase()))
-                          if (ev.target.checked) setSelectedEmpIds(filtered.map(e => e.id))
-                          else setSelectedEmpIds([])
-                        }}
-                      />
-                    </th>
-                    <th className="px-4 py-2 text-left">Họ và tên</th>
-                    <th className="px-4 py-2 text-left">Phòng ban</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).map(e => (
-                    <tr key={e.id} className="border-b last:border-0 hover:bg-zinc-50 cursor-pointer" onClick={() => {
-                      setSelectedEmpIds(prev => prev.includes(e.id) ? prev.filter(id => id !== e.id) : [...prev, e.id])
-                    }}>
-                      <td className="px-4 py-2 text-center" onClick={ev => ev.stopPropagation()}>
-                        <input type="checkbox" className="accent-zinc-900" checked={selectedEmpIds.includes(e.id)} onChange={(ev) => {
-                          if (ev.target.checked) setSelectedEmpIds(prev => [...prev, e.id])
-                          else setSelectedEmpIds(prev => prev.filter(id => id !== e.id))
-                        }} />
-                      </td>
-                      <td className="px-4 py-2 font-medium">{e.full_name}</td>
-                      <td className="px-4 py-2 text-zinc-500">{e.department}</td>
-                    </tr>
-                  ))}
-                  {allEmployees.filter(e => e.full_name.toLowerCase().includes(searchEmp.toLowerCase())).length === 0 && (
-                    <tr><td colSpan={3} className="px-4 py-8 text-center text-zinc-400">Không tìm thấy ai.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Button onClick={addMembersBatch} disabled={selectedEmpIds.length === 0} className="w-full">
-              Thêm {selectedEmpIds.length} thành viên đã chọn
-            </Button>
-          </div>
-        </Modal>
+        <AddProjectMemberModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          projectName={liveProject.project_name}
+          onAdd={handleAddMembers}
+        />
 
         {/* Edit project modal */}
         <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Chỉnh sửa dự án" maxWidth="max-w-2xl">

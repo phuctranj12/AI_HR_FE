@@ -187,7 +187,7 @@ export default function DocumentsPage() {
   const [searchType, setSearchType] = useState<'name' | 'cccd' | 'mnv'>('name')
   const [searchResults, setSearchResults] = useState<PersonFolder[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  
+
   // uploadOpen state is managed globally now
   const [faceOpen, setFaceOpen] = useState(false)
   const [moveModalOpen, setMoveModalOpen] = useState(false)
@@ -248,6 +248,10 @@ export default function DocumentsPage() {
     try {
       await commitFiles(currentFolder.name, targetPerson || currentFolder.name, selectedFiles)
       setSelectedFiles([])
+      // Dispatch event to notify modal to remove committed files
+      window.dispatchEvent(new CustomEvent('files-committed', {
+        detail: { person: currentFolder.name, files: selectedFiles }
+      }))
       refresh()
       if (selectedFiles.length === liveFolder?.files.length) {
         setCurrentFolder(null)
@@ -355,6 +359,10 @@ export default function DocumentsPage() {
     setCommitting(true)
     try {
       await Promise.all(targets.map(p => commitPerson(p)))
+      // Dispatch event to notify modal to remove committed person's files
+      targets.forEach(person => {
+        window.dispatchEvent(new CustomEvent('person-committed', { detail: { person } }))
+      })
       refresh()
       toast.success(`Đã duyệt ${targets.length} hồ sơ thành công.`)
     } catch (err) {
@@ -663,6 +671,8 @@ export default function DocumentsPage() {
                           <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={async () => {
                             try {
                               await commitPerson(p.name)
+                              // Dispatch event to notify modal to remove committed person's files
+                              window.dispatchEvent(new CustomEvent('person-committed', { detail: { person: p.name } }))
                               refresh()
                               toast.success('Đã lưu hồ sơ vào storage chính.')
                             } catch (err) {

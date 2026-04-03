@@ -11,8 +11,8 @@ type Tab = 'documents' | 'employees' | 'projects' | 'terminated_persons' | 'noti
 
 const TABS: { id: Tab; label: string; Icon: typeof Users }[] = [
   { id: 'documents', label: 'Hồ sơ nhân sự', Icon: FolderTree },
-  // { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
-  { id: 'terminated_persons', label: 'DS Nghỉ việc', Icon: FolderTree },
+  { id: 'employees', label: 'Nhân sự (DB)', Icon: Users },
+  // { id: 'terminated_persons', label: 'DS Nghỉ việc', Icon: FolderTree },
   { id: 'projects', label: 'Quản lý dự án', Icon: Users },
   { id: 'notifications', label: 'Thông báo', Icon: Bell },
 ]
